@@ -79,15 +79,70 @@
             <TabItem Header="FRANCHISE STUDIO">
         <Grid Margin="0,12,0,0">
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/><!-- source -->
+                <RowDefinition Height="Auto"/><!-- status -->
+                <RowDefinition Height="*"/><!-- teams / season -->
+                <RowDefinition Height="Auto"/><!-- actions -->
             </Grid.RowDefinitions>
 
+            <!-- source picker -->
             <Border Grid.Row="0" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource PanelBorderBrush}"
-                    BorderThickness="1" CornerRadius="4" Padding="14">
-                <TextBlock Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap"
-                           Text="Franchise Studio is coming in the next build. Once live it will let you open a COPY of a franchise save, browse and edit team names and season settings, and round-trip the result without ever touching your original files."/>
+                    BorderThickness="1" CornerRadius="4" Padding="10">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox Grid.Column="0" x:Name="StudioPathBox" IsReadOnly="True" VerticalContentAlignment="Center"
+                             VerticalAlignment="Center"/>
+                    <Button Grid.Column="1" x:Name="StudioBrowseBtn" Content="Browse…" Margin="8,0,0,0" Click="StudioBrowse_Click"/>
+                    <Button Grid.Column="2" x:Name="StudioOpenBtn" Content="OPEN IN STUDIO" Margin="8,0,0,0" Click="StudioOpen_Click"/>
+                </Grid>
             </Border>
+
+            <!-- status -->
+            <Border Grid.Row="1" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource PanelBorderBrush}"
+                    BorderThickness="1" CornerRadius="4" Padding="10,8" Margin="0,8,0,0">
+                <StackPanel>
+                    <TextBlock x:Name="StudioStatus" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap"
+                               Text="Open a franchise save to edit a COPY of it. Your original files are never overwritten."/>
+                </StackPanel>
+            </Border>
+
+            <!-- teams + season -->
+            <Grid Grid.Row="2" Margin="0,8,0,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
+                    <TextBlock Text="Season year:" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}"/>
+                    <TextBox x:Name="SeasonYearBox" Width="70" Margin="8,0,0,0" VerticalContentAlignment="Center"/>
+                    <Button x:Name="ApplySeasonBtn" Content="Set Season Year" Margin="8,0,0,0" Click="ApplySeason_Click"/>
+                </StackPanel>
+
+                <DataGrid Grid.Row="1" x:Name="TeamGrid" AutoGenerateColumns="False" IsReadOnly="False"
+                          HeadersVisibility="Column" CanUserAddRows="False" CanUserDeleteRows="False"
+                          Background="#060606" Foreground="{StaticResource TextBrush}"
+                          AlternatingRowBackground="#0D0D0D" RowBackground="#080808"
+                          BorderBrush="{StaticResource PanelBorderBrush}" GridLinesVisibility="None"
+                          HorizontalGridLinesBrush="#1E3D28" SelectionUnit="FullRow">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Display Name" Binding="{Binding DisplayName, Mode=TwoWay}" Width="*"/>
+                        <DataGridTextColumn Header="Nick Name" Binding="{Binding NickName, Mode=TwoWay}" Width="*"/>
+                        <DataGridTextColumn Header="Asset Name (key)" Binding="{Binding AssetName}" Width="*" IsReadOnly="True"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+
+            <!-- actions -->
+            <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,8,0,0">
+                <Button x:Name="StudioSaveBtn" Content="SAVE CHANGED COPY" Padding="20,8" Click="StudioSave_Click" IsEnabled="False"/>
+                <TextBlock x:Name="StudioNote" VerticalAlignment="Center" Margin="14,0,0,0"
+                           Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" MaxWidth="480"/>
+            </StackPanel>
         </Grid>
             </TabItem>
         </TabControl>
