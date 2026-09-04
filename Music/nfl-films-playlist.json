@@ -1,0 +1,27 @@
+{
+  "title": "NFL Films Music",
+  "source": "https://www.youtube.com/playlist?list=PLQoWlWAkKtRsHfEREX9PrZNBoOzMQvxvN",
+  "note": "Scraped from YouTube ytInitialData. Playlist has 133 videos total; 100 were captured. Place matching audio files (mp3) in the app's Music folder; the BGM player plays them with toggle/skip in the ribbon.",
+  "tracks": [
+    "Wild Bunch", "Legends of Valor", "Reaching for Glory", "Do or Die", "Vindication",
+    "Run to Win", "The Pope of Green Bay", "Best of the Best", "Power to Prevail", "The Team to Beat",
+    "Cool Under Fire", "Bloodlines", "Retribution", "Cut and Run", "Ignition",
+    "Myth Makers", "Forging Legends", "Vanquish", "Rise and Conquer", "Ascendance",
+    "Steadfast", "So Close The Ring", "Football Justice", "Out of Reach", "Iron Sharpens Iron",
+    "The Fight Within", "Destined For Victory", "Epic Battle", "The Last Gunslinger", "Ground Game",
+    "Building Intensity", "Building Action", "Building The Moment", "Path to Honor", "Test of Honor",
+    "Bound by Honor", "Badge of Honor", "Fight for Honor", "Glory and Honor", "Nowhere To Hide",
+    "Slow It Down", "One On One", "Furious", "Momentum Shift", "Out of Nowhere",
+    "Fighting Back", "Now Is The Time", "Rush Zone", "Fight Camp", "Hot Stove",
+    "January Reign", "Setting The Stage", "Choose Your Destiny", "On The Line", "Rivals",
+    "Moment Of Truth", "Crushed", "The Game", "Whiplash", "Hall Of Fame: Reprise",
+    "Hall Of Fame: Theme", "Hall Of Fame: History", "Hall Of Fame: Overture", "Warrior's Resolve", "Lombardi Time",
+    "Often Wrong Never In Doubt", "Run To The Playoffs (Trailer Version)", "Forging A Dynasty", "Heroes Will Overcome", "Playoff Season",
+    "Dominate", "Gallaudet", "Legends", "Drive To Glory", "Rise To Power",
+    "Raw Determination", "Bison Pride", "Down But Not Out", "Power Sweep", "Untouchable",
+    "Midseason Slump", "Lead The Way", "Run To The Playoffs", "Unleashed", "One For All",
+    "The Day Has Come", "Season In The Balance", "Rising Up", "Return To Win", "A Championship Returned",
+    "Return To Fight", "The Struggle", "Never Give In", "Never Lose Sight", "Moving Target",
+    "Title Run", "Destiny", "Warriors Return", "A Legend Is Born", "Battle Cry"
+  ]
+}

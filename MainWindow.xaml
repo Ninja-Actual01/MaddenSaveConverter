@@ -8,6 +8,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <!-- banner -->
@@ -167,5 +168,27 @@
         </Grid>
             </TabItem>
         </TabControl>
+
+        <!-- music ribbon -->
+        <Border Grid.Row="3" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource PanelBorderBrush}"
+                BorderThickness="1" CornerRadius="4" Margin="0,12,0,0" Padding="10,7">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource MutedBrush}"
+                           VerticalAlignment="Center" Margin="0,0,10,0">
+                    <Run Text="♪ BGM"/></TextBlock>
+                <Button Grid.Column="1" x:Name="BgmToggleBtn" Content="▶ Play" Padding="10,5" Click="BgmToggle_Click"/>
+                <Button Grid.Column="2" x:Name="BgmSkipBtn" Content="⏭ Skip" Padding="10,5" Margin="8,0,0,0"
+                        Click="BgmSkip_Click" HorizontalAlignment="Left"/>
+                <TextBlock Grid.Column="3" x:Name="BgmNow" VerticalAlignment="Center"
+                           Foreground="{StaticResource AccentBrush}" Text="no music tracks"
+                           FontSize="12" TextTrimming="CharacterEllipsis" MaxWidth="360"/>
+            </Grid>
+        </Border>
     </Grid>
 </Window>

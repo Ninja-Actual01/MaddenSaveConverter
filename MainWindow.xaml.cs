@@ -20,6 +20,7 @@ public partial class MainWindow : Window
 
     string _sourcePath;
     FranchiseEngineClient _engine;
+    BgmPlayer _bgm;
     string _studioOrigPath;   // the user's original (never modified)
     string _studioWorkPath;   // temp working copy we read/<-> edit against (scratch copy)
     string _studioOutputPath; // final edited copy (same saves folder, game-eligible name)
@@ -47,6 +48,22 @@ public partial class MainWindow : Window
     {
         if (IntroToggle != null && IntroToggle.IsChecked.HasValue)
             AppSettings.SetIntroEnabled(IntroToggle.IsChecked.Value);
+    }
+
+    void BgmToggle_Click(object sender, RoutedEventArgs e)
+    {
+        _bgm ??= new BgmPlayer();
+        _bgm.Toggle();
+        BgmToggleBtn.Content = _bgm.IsPlaying ? "⏸ Pause" : "▶ Play";
+        BgmNow.Text = _bgm.CurrentLabel;
+    }
+
+    void BgmSkip_Click(object sender, RoutedEventArgs e)
+    {
+        _bgm ??= new BgmPlayer();
+        _bgm.Skip();
+        BgmToggleBtn.Content = _bgm.IsPlaying ? "⏸ Pause" : "▶ Play";
+        BgmNow.Text = _bgm.CurrentLabel;
     }
 
     void Browse_Click(object sender, RoutedEventArgs e)
@@ -362,6 +379,7 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        try { _bgm?.Stop(); } catch { }
         try { _engine?.Dispose(); } catch { }
         base.OnClosed(e);
     }
