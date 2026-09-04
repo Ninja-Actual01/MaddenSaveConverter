@@ -34,12 +34,19 @@ public partial class MainWindow : Window
         Log($"M26 saves: {M26Saves}");
         Log($"M27 saves: {M27Saves}");
         Log("");
+        IntroToggle.IsChecked = AppSettings.ShowIntroOnBoot;
     }
 
     void Log(string s)
     {
         LogBox.AppendText(s + Environment.NewLine);
         LogBox.ScrollToEnd();
+    }
+
+    void IntroToggle_Changed(object sender, RoutedEventArgs e)
+    {
+        if (IntroToggle != null && IntroToggle.IsChecked.HasValue)
+            AppSettings.SetIntroEnabled(IntroToggle.IsChecked.Value);
     }
 
     void Browse_Click(object sender, RoutedEventArgs e)

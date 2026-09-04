@@ -53,9 +53,18 @@ Proves a save re-packs + reloads cleanly. Used for verification.
 - **Season year** — edit `SeasonInfo.CurrentSeasonYear` (e.g. 2026 → 1985), persists and reloads.
 - **Round-trip** — M27 resave is byte-identical; M26 resave differs internally but reloads cleanly.
 
+## References
+
+- Engine library: <https://github.com/bep713/madden-franchise>
+- GUI editor front-end (feature-parity / UI reference): <https://github.com/bep713/madden-franchise-editor>
+
 ## Important library caveat
 
 `madden-franchise` v4.3.6 lazily attaches table schemas and can return **0 records** for a table until the schema cache is warmed by reading another table first. The engine calls `warmSchemas()` after `parse()` to make reads deterministic. Keep this when porting to C#.
+
+## Read-after-edit semantics
+
+`readTable`/`editTable` re-copy `src` over `workPath` (with a verified backup) on each call by default. After an edit has saved changes to `workPath`, later reads must be sent with `src` equal to the `workPath` (the edited copy) so changes are not clobbered by a fresh copy from the original. The C# client targets the work copy after the first open.
 
 ## Dependencies
 
