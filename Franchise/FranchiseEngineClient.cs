@@ -25,9 +25,16 @@ public sealed class FranchiseEngineClient : IDisposable
     private readonly Process _proc;
     private readonly StreamWriter _stdin;
     private readonly Dictionary<int, TaskCompletionSource<JsonElement>> _pending = new();
+    private readonly StringBuilder _stderrBuf = new();
     private readonly object _sendLock = new();
     private int _nextId;
     private bool _disposed;
+
+    /// <summary>How long to wait for an engine response before declaring it hung.</summary>
+    public TimeSpan Timeout { get; set; } = TimeSpan.FromSeconds(45);
+
+    /// <summary>Last stderr lines captured from the node process (for diagnostics).</summary>
+    public string StdErr => _stderrBuf.ToString();
 
     public FranchiseEngineClient()
     {
@@ -51,17 +58,22 @@ public sealed class FranchiseEngineClient : IDisposable
         _stdin.AutoFlush = true;
         _stdin.NewLine = "\n";
         var stderr = _proc.StandardError;
-        var _ = Task.Run(() =>
+        var _ = Task.Run(async () =>
         {
-            try { stderr.ReadToEnd(); } catch { /* ignored */ }
+            try
+            {
+                var s = await stderr.ReadToEndAsync().ConfigureAwait(false);
+                lock (_stderrBuf) { if (!string.IsNullOrEmpty(s)) _stderrBuf.Append(s); }
+            }
+            catch { /* ignored */ }
         });
         // Read responses line-by-line on the background.
         var stdout = _proc.StandardOutput;
-        var _stderr = Task.Run(() => ReadLoopAsync(stdout));
+        var _reader = Task.Run(() => ReadLoopAsync(stdout));
     }
 
-    /// <summary>Send a request and await the matching response.</summary>
-    public Task<JsonElement> RequestAsync(string cmd, object? args, CancellationToken ct = default)
+    /// <summary>Send a request and await the matching response (with timeout).</summary>
+    public async Task<JsonElement> RequestAsync(string cmd, object? args, CancellationToken ct = default)
     {
         var id = Interlocked.Increment(ref _nextId);
         var tcs = new TaskCompletionSource<JsonElement>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -85,7 +97,16 @@ public sealed class FranchiseEngineClient : IDisposable
             lock (_pending) _pending.Remove(id);
             throw new InvalidOperationException("Failed to write to node engine: " + ex.Message, ex);
         }
-        return tcs.Task;
+        try
+        {
+            return await tcs.Task.WaitAsync(Timeout, ct).ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
+            lock (_pending) _pending.Remove(id);
+            throw new InvalidOperationException(
+                $"Node engine timed out after {Timeout.TotalSeconds:0}s waiting for '{cmd}'.\nStderr:\n{StdErr}");
+        }
     }
 
     private async Task ReadLoopAsync(StreamReader stdout)

@@ -24,6 +24,21 @@ public static class SelfTest
     static int RunStudio()
     {
         Console.WriteLine("== Franchise Studio engine client self-test ==");
+        // Run the engine calls on a threadpool thread so no WPF SynchronizationContext
+        // is captured (avoids sync-over-async deadlock).
+        try
+        {
+            return Task.Run(() => RunStudioCore()).GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("STUDIO CLIENT SELFTEST FAILED: " + ex.Message);
+            return 1;
+        }
+    }
+
+    static int RunStudioCore()
+    {
         using var engine = new FranchiseEngineClient();
         var scratch = Path.Combine(Path.GetTempPath(), "fs_selftest");
         Directory.CreateDirectory(scratch);
@@ -36,7 +51,8 @@ public static class SelfTest
             Console.WriteLine("  ping: " + ping.ToString());
 
             var intro = engine.IntrospectAsync(src, work, bak).GetAwaiter().GetResult();
-            Console.WriteLine($"  introspect: gameYear={intro.GetProperty("gameYear")} gameType={intro.GetProperty("gameType")} tables={intro.GetProperty("tables").GetArrayLength()}");
+            int tableCount = intro.GetProperty("tables").EnumerateObject().Count();
+            Console.WriteLine($"  introspect: gameYear={intro.GetProperty("gameYear")} gameType={intro.GetProperty("gameType")} tables={tableCount}");
 
             var team = engine.ReadTableAsync(src, work, "Team", new[] { "DisplayName", "NickName", "AssetName", "TeamIndex" }).GetAwaiter().GetResult();
             int count = team.GetProperty("count").GetInt32();
@@ -55,8 +71,8 @@ public static class SelfTest
             Console.WriteLine($"  editTable: edited={edited} reloaded={reloaded}");
             if (edited != 2 || !reloaded) return 3;
 
-            // re-read to confirm persisted
-            var reread = engine.ReadTableAsync(src, work, "Team", new[] { "DisplayName", "NickName", "AssetName" }).GetAwaiter().GetResult();
+            // re-read the EDITED copy (src=work so the engine doesn't re-copy over it)
+            var reread = engine.ReadTableAsync(work, work, "Team", new[] { "DisplayName", "NickName", "AssetName" }).GetAwaiter().GetResult();
             string newName = "";
             foreach (var row in reread.GetProperty("rows").EnumerateArray())
             {
@@ -75,7 +91,7 @@ public static class SelfTest
         }
         finally
         {
-            try { if (Directory.Exists(scratch)) Directory.Delete(scratch, true); } catch { } 
+            try { if (Directory.Exists(scratch)) Directory.Delete(scratch, true); } catch { }
         }
     }
 
