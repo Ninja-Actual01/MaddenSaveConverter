@@ -29,6 +29,11 @@
     <Content Include="convert_franchise_m26_to_m27.mjs" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <!-- Boot-up sting -->
+  <ItemGroup>
+    <Content Include="Sounds\*.mp3" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <!-- Franchise Studio: ship the Node engine (engine + its vendored pure-JS deps)
        so the portable folder is self-contained. Decompression uses Node's built-in
        zlib zstd, so no native modules are needed. -->

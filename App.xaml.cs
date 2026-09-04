@@ -26,6 +26,7 @@ public partial class App : Application
             Shutdown(Cli.RunCompareInner(e.Args));
             return;
         }
+        BootSound.Play();
         base.OnStartup(e);
     }
 }
