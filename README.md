@@ -1,6 +1,7 @@
-# Madden Save Converter
+# Legion of Loom Football Game Tool
 
-Bidirectional roster converter between Madden 26 and Madden 27.
+Bidirectional roster converter between Madden 26 and Madden 27, with Franchise Studio
+(Franchise Edit) for editing franchise saves — targeting Madden 26/27 and CFB27.
 
 ## Requirements
 

@@ -1,6 +1,8 @@
 using System.IO;
 using System.IO.Compression;
+using System.Text.Json;
 using MaddenSaveConverter.Convert;
+using MaddenSaveConverter.Franchise;
 using MaddenSaveConverter.Tdb2;
 
 namespace MaddenSaveConverter;
@@ -12,14 +14,76 @@ public static class SelfTest
     public static int Run(string[] args = null)
     {
         if (args != null && args.Contains("--reverse")) return RunReverse();
+        if (args != null && args.Contains("--studio")) return RunStudio();
         return RunForward();
+    }
+
+    // Exercises the C# FranchiseEngineClient against the real Node engine and a real
+    // M26 franchise save on a throwaway copy: introspect, read Team, edit a team name,
+    // round-trip, re-read. Never touches the original save.
+    static int RunStudio()
+    {
+        Console.WriteLine("== Franchise Studio engine client self-test ==");
+        using var engine = new FranchiseEngineClient();
+        var scratch = Path.Combine(Path.GetTempPath(), "fs_selftest");
+        Directory.CreateDirectory(scratch);
+        var src = @"C:\Users\Ninja\Documents\Madden NFL 26\saves\CAREER-2027START";
+        var work = Path.Combine(scratch, "work.m26");
+        var bak = Path.Combine(scratch, "work.m26.bak");
+        try
+        {
+            var ping = engine.PingAsync().GetAwaiter().GetResult();
+            Console.WriteLine("  ping: " + ping.ToString());
+
+            var intro = engine.IntrospectAsync(src, work, bak).GetAwaiter().GetResult();
+            Console.WriteLine($"  introspect: gameYear={intro.GetProperty("gameYear")} gameType={intro.GetProperty("gameType")} tables={intro.GetProperty("tables").GetArrayLength()}");
+
+            var team = engine.ReadTableAsync(src, work, "Team", new[] { "DisplayName", "NickName", "AssetName", "TeamIndex" }).GetAwaiter().GetResult();
+            int count = team.GetProperty("count").GetInt32();
+            Console.WriteLine($"  readTable Team: {count} rows");
+            if (count < 30) return 2;
+
+            // rename Bengals via a fresh copy to prove edit + save + reload
+            var edits = new[]
+            {
+                new { match = new { field = "AssetName", value = "Bengals" }, field = "DisplayName", value = "Cincinnati Rat Kings" },
+                new { match = new { field = "AssetName", value = "Bengals" }, field = "NickName", value = "Rat Kings" }
+            };
+            var edit = engine.EditTableAsync(src, work, "Team", edits).GetAwaiter().GetResult();
+            int edited = edit.GetProperty("edited").GetInt32();
+            bool reloaded = edit.GetProperty("reloadedOk").GetBoolean();
+            Console.WriteLine($"  editTable: edited={edited} reloaded={reloaded}");
+            if (edited != 2 || !reloaded) return 3;
+
+            // re-read to confirm persisted
+            var reread = engine.ReadTableAsync(src, work, "Team", new[] { "DisplayName", "NickName", "AssetName" }).GetAwaiter().GetResult();
+            string newName = "";
+            foreach (var row in reread.GetProperty("rows").EnumerateArray())
+            {
+                if (row.GetProperty("AssetName").GetString() == "Bengals")
+                    newName = row.GetProperty("DisplayName").GetString();
+            }
+            Console.WriteLine($"  re-read Bengal DisplayName: '{newName}'");
+            bool persisted = newName.StartsWith("Cincinnati");
+            Console.WriteLine(persisted ? "STUDIO CLIENT SELFTEST PASSED" : "STUDIO PERSISTENCE FAILED");
+            return persisted ? 0 : 4;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("STUDIO CLIENT SELFTEST FAILED: " + ex.Message);
+            return 1;
+        }
+        finally
+        {
+            try { if (Directory.Exists(scratch)) Directory.Delete(scratch, true); } catch { } 
+        }
     }
 
     // M27 -> M26: source = the verified M27-format output of the forward conversion,
     // template = the original M26 roster. Validates salaries migrate back into PLAY.
     static int RunReverse()
     {
-        Console.WriteLine("== Legion of Loom MSC self-test (reverse: M27 -> M26) ==");
+        Console.WriteLine("== Legion of Loom FGT self-test (reverse: M27 -> M26) ==");
         try
         {
             var m27src = @"C:\Users\Ninja\AppData\Local\Temp\opencode\m26to27\ROSTER-M26CONVERTED";
@@ -65,7 +129,7 @@ public static class SelfTest
         var jsOut = @"C:\Users\Ninja\AppData\Local\Temp\opencode\m26to27\ROSTER-M26CONVERTED";
         var outPath = Path.Combine(Path.GetTempPath(), "mfc_selftest_ROSTER-2019");
 
-        Console.WriteLine("== Legion of Loom MSC self-test ==");
+        Console.WriteLine("== Legion of Loom FGT self-test ==");
         try
         {
             Console.WriteLine("loading source (M26 ROSTER-2019)...");

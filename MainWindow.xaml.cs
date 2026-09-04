@@ -20,7 +20,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        Log("LEGION OF LOOM MADDEN SAVE CONVERTER");
+        Log("LEGION OF LOOM FOOTBALL GAME TOOL");
         Log("------------------------------------");
         Log($"M26 saves: {M26Saves}");
         Log($"M27 saves: {M27Saves}");
