@@ -6,14 +6,12 @@
     <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
         <!-- banner -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,18">
-            <Image Source="Assets/logo.png" Height="84" RenderOptions.BitmapScalingMode="HighQuality"/>
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,14">
+            <Image Source="Assets/logo.png" Height="72" RenderOptions.BitmapScalingMode="HighQuality"/>
             <StackPanel VerticalAlignment="Center" Margin="16,0,0,0">
                 <TextBlock Text="LEGION OF LOOM" FontSize="26" FontWeight="Bold"
                            Foreground="{StaticResource AccentBrush}"/>
@@ -24,8 +22,18 @@
             </StackPanel>
         </StackPanel>
 
+        <TabControl Grid.Row="1">
+            <TabItem Header="CONVERT">
+        <Grid Margin="0,12,0,0">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
         <!-- source picker -->
-        <Border Grid.Row="1" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource PanelBorderBrush}"
+        <Border Grid.Row="0" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource PanelBorderBrush}"
                 BorderThickness="1" CornerRadius="4" Padding="14">
             <StackPanel>
                 <TextBlock Text="SOURCE SAVE FILE" FontSize="11" FontWeight="SemiBold"
@@ -66,5 +74,22 @@
                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
                      BorderThickness="0" Padding="8"/>
         </Border>
+    </Grid>
+            </TabItem>
+            <TabItem Header="FRANCHISE STUDIO">
+        <Grid Margin="0,12,0,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource PanelBorderBrush}"
+                    BorderThickness="1" CornerRadius="4" Padding="14">
+                <TextBlock Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap"
+                           Text="Franchise Studio is coming in the next build. Once live it will let you open a COPY of a franchise save, browse and edit team names and season settings, and round-trip the result without ever touching your original files."/>
+            </Border>
+        </Grid>
+            </TabItem>
+        </TabControl>
     </Grid>
 </Window>
