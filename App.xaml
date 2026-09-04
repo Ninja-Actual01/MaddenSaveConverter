@@ -152,5 +152,54 @@
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Width" Value="10"/>
         </Style>
+
+        <!-- ===================== DataGrid (dark green) ===================== -->
+        <Style TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="{StaticResource AccentDarkBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="BorderBrush" Value="{StaticResource PanelBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="0,0,1,1"/>
+        </Style>
+
+        <Style TargetType="DataGrid">
+            <Setter Property="Background" Value="#070C08"/>
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource PanelBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="GridLinesVisibility" Value="All"/>
+            <Setter Property="HorizontalGridLinesBrush" Value="{StaticResource GridLineBrush}"/>
+            <Setter Property="VerticalGridLinesBrush" Value="{StaticResource PanelBorderBrush}"/>
+            <Setter Property="RowBackground" Value="#0A100B"/>
+            <Setter Property="AlternatingRowBackground" Value="#0E1510"/>
+            <Setter Property="RowHeight" Value="30"/>
+            <Setter Property="SelectionUnit" Value="FullRow"/>
+            <Setter Property="UseLayoutRounding" Value="True"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="CanUserResizeRows" Value="False"/>
+        </Style>
+
+        <Style TargetType="DataGridRow">
+            <Setter Property="FontSize" Value="12.5"/>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#0E3A1E"/>
+                    <Setter Property="Foreground" Value="{StaticResource AccentGlowBrush}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style TargetType="DataGridCell">
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#0E3A1E"/>
+                    <Setter Property="Foreground" Value="White"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
     </Application.Resources>
 </Application>

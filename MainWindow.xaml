@@ -41,8 +41,9 @@
         <Border Grid.Row="0" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource PanelBorderBrush}"
                 BorderThickness="1" CornerRadius="4" Padding="14">
             <StackPanel>
-                <TextBlock Text="SOURCE SAVE FILE" FontSize="11" FontWeight="SemiBold"
-                           Foreground="{StaticResource MutedBrush}" Margin="0,0,0,8"/>
+                <TextBlock Grid.Row="0" FontSize="11" FontWeight="SemiBold"
+                           Foreground="{StaticResource AccentBrush}" Margin="0,0,0,8">
+                    <Run Text="▪ "/><Run Text="SOURCE SAVE FILE"/></TextBlock>
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -123,17 +124,15 @@
                 </Grid.RowDefinitions>
 
                 <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
-                    <TextBlock Text="Season year:" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}"/>
+                    <TextBlock Grid.Row="0" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"
+                           Foreground="{StaticResource AccentBrush}">
+                    <Run Text="▪ "/><Run Text="Season year:"/></TextBlock>
                     <TextBox x:Name="SeasonYearBox" Width="70" Margin="8,0,0,0" VerticalContentAlignment="Center"/>
                     <Button x:Name="ApplySeasonBtn" Content="Set Season Year" Margin="8,0,0,0" Click="ApplySeason_Click"/>
                 </StackPanel>
 
                 <DataGrid Grid.Row="1" x:Name="TeamGrid" AutoGenerateColumns="False" IsReadOnly="False"
-                          HeadersVisibility="Column" CanUserAddRows="False" CanUserDeleteRows="False"
-                          Background="#060606" Foreground="{StaticResource TextBrush}"
-                          AlternatingRowBackground="#0D0D0D" RowBackground="#080808"
-                          BorderBrush="{StaticResource PanelBorderBrush}" GridLinesVisibility="None"
-                          HorizontalGridLinesBrush="#1E3D28" SelectionUnit="FullRow">
+                          HeadersVisibility="Column" CanUserAddRows="False" CanUserDeleteRows="False">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Display Name" Binding="{Binding DisplayName, Mode=TwoWay}" Width="*"/>
                         <DataGridTextColumn Header="Nick Name" Binding="{Binding NickName, Mode=TwoWay}" Width="*"/>
@@ -156,8 +155,9 @@
                 <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource PanelBorderBrush}"
                         BorderThickness="1" CornerRadius="4" Padding="14">
                     <StackPanel>
-                        <TextBlock Text="SETTINGS" FontSize="11" FontWeight="SemiBold"
-                                   Foreground="{StaticResource MutedBrush}" Margin="0,0,0,10"/>
+                        <TextBlock Grid.Row="0" FontSize="11" FontWeight="SemiBold"
+                                   Foreground="{StaticResource AccentBrush}" Margin="0,0,0,10">
+                            <Run Text="▪ "/><Run Text="SETTINGS"/></TextBlock>
                         <CheckBox x:Name="IntroToggle" Content="Play intro video on startup"
                                   Foreground="{StaticResource TextBrush}" Margin="0,0,0,14"
                                   Checked="IntroToggle_Changed" Unchecked="IntroToggle_Changed"/>
