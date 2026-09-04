@@ -21,7 +21,8 @@ public partial class MainWindow : Window
     string _sourcePath;
     FranchiseEngineClient _engine;
     string _studioOrigPath;   // the user's original (never modified)
-    string _studioWorkPath;   // the working copy we edit
+    string _studioWorkPath;   // temp working copy we read/<-> edit against (scratch copy)
+    string _studioOutputPath; // final edited copy (same saves folder, game-eligible name)
     string _studioBackupPath; // verified backup of the original
     readonly List<StudioRow> _teams = new();
 
@@ -216,11 +217,16 @@ public partial class MainWindow : Window
             _studioWorkPath = Path.Combine(Path.Combine(Path.GetTempPath(), "FGT"), "work-" + fn);
             Directory.CreateDirectory(Path.GetDirectoryName(_studioWorkPath));
 
+            // Game-eligible output name: must be CAREER-<alphanumeric slot>, no extra
+            // punctuation. So we sanitize the original slot name to [A-Za-z0-9] and
+            // append "Edited" so it stays loadable: CAREER-2027START -> CAREER-2027STARTEdited.
+            _studioOutputPath = EligibleOutputPath();
+
             StudioStatus.Text = "Introspecting save (making a verified copy)…";
             var intro = await Context.IntrospectAsync(_studioOrigPath, _studioWorkPath, _studioBackupPath);
             string gameYear = intro.GetProperty("gameYear").ToString();
             string gameType = intro.GetProperty("gameType").GetString();
-            StudioStatus.Text = $"Opened a copy of {fn} (gameYear {gameYear}, type {gameType}). Edit below, then Save the copy.";
+            StudioStatus.Text = $"Opened a copy of {fn} (gameYear {gameYear}, type {gameType}). Edit below, then Save.";
 
             var team = await ReadTeamsAsync();
             _teams.Clear();
@@ -267,28 +273,33 @@ public partial class MainWindow : Window
         {
             StudioSaveBtn.IsEnabled = false;
             StudioStatus.Text = "Saving changed copy…";
-            var edits = new List<object>();
-            foreach (var t in _teams)
-            {
-                edits.Add(new { match = new { field = "AssetName", value = t.AssetName }, field = "DisplayName", value = t.DisplayName });
-                edits.Add(new { match = new { field = "AssetName", value = t.AssetName }, field = "NickName", value = t.NickName });
-            }
-            if (int.TryParse(SeasonYearBox.Text, out int seasonYear))
-                edits.Add(new { field = "CurrentSeasonYear", value = seasonYear });
-
-            var result = await Context.EditTableAsync(_studioOrigPath, _studioWorkPath, "Team", edits, _studioBackupPath);
+            var result = await SaveFullAsync();
             int edited = result.GetProperty("edited").GetInt32();
             bool reloaded = result.TryGetProperty("reloadedOk", out var rl) && rl.GetBoolean();
-            StudioStatus.Text = $"Saved copy: {edited} field edits, reloaded={reloaded}. Go to {Path.GetDirectoryName(_studioWorkPath)} to grab your edited file.";
+            StudioSaveBtn.IsEnabled = true;
+            StudioStatus.Text = $"Saved a copy to your saves folder: {_studioOutputPath}  ({edited} edits, reloaded={reloaded}). Load it in-game to verify.";
         }
         catch (Exception ex)
         {
             StudioStatus.Text = "Error saving copy: " + ex.Message;
-        }
-        finally
-        {
             StudioSaveBtn.IsEnabled = true;
         }
+    }
+
+    // Build and apply the FULL current state (all team grid edits + season year) from the
+    // original to the game-eligible output path in one atomic call, so saves never clobber
+    // each other.
+    async Task<JsonElement> SaveFullAsync()
+    {
+        var edits = new List<object>();
+        foreach (var t in _teams)
+        {
+            edits.Add(new { match = new { field = "AssetName", value = t.AssetName }, field = "DisplayName", value = t.DisplayName });
+            edits.Add(new { match = new { field = "AssetName", value = t.AssetName }, field = "NickName", value = t.NickName });
+        }
+        if (int.TryParse(SeasonYearBox.Text, out int seasonYear))
+            edits.Add(new { field = "CurrentSeasonYear", value = seasonYear });
+        return await Context.EditTableAsync(_studioOrigPath, _studioOutputPath, "Team", edits, _studioBackupPath);
     }
 
     async void ApplySeason_Click(object sender, RoutedEventArgs e)
@@ -296,15 +307,16 @@ public partial class MainWindow : Window
         try
         {
             ApplySeasonBtn.IsEnabled = false;
-            if (!int.TryParse(SeasonYearBox.Text, out int sy))
+            if (!int.TryParse(SeasonYearBox.Text, out _))
             {
                 StudioStatus.Text = "Season year must be a number.";
                 return;
             }
-            var edits = new object[] { new { field = "CurrentSeasonYear", value = sy } };
-            var result = await Context.EditTableAsync(_studioOrigPath, _studioWorkPath, "SeasonInfo", edits, _studioBackupPath);
+            // The season field is saved together with team edits by SaveFullAsync; this just
+            // persists everything now.
+            var result = await SaveFullAsync();
             int edited = result.GetProperty("edited").GetInt32();
-            StudioStatus.Text = $"Season year set on the copy (edited={edited}).";
+            StudioStatus.Text = $"Saved a copy to your saves folder: {_studioOutputPath}  ({edited} edits). Load it in-game to verify.";
         }
         catch (Exception ex)
         {
@@ -313,6 +325,7 @@ public partial class MainWindow : Window
         finally
         {
             ApplySeasonBtn.IsEnabled = true;
+            StudioSaveBtn.IsEnabled = true;
         }
     }
 
@@ -321,6 +334,23 @@ public partial class MainWindow : Window
         if (obj.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.String)
             return v.GetString();
         return null;
+    }
+
+    // Build a game-eligible output filename in the original's saves folder. In-game
+    // franchise saves are only recognized as "CAREER-<alphanumeric slot name>" with NO
+    // extra punctuation (no underscore/hyphen/space). We strip everything to letters and
+    // digits from the original slot, guard length, and append "Edited".
+    string EligibleOutputPath()
+    {
+        var dir = Path.GetDirectoryName(_studioOrigPath) ?? ".";
+        var slot = Path.GetFileNameWithoutExtension(_studioOrigPath);
+        int dash = slot.IndexOf('-');
+        var name = dash >= 0 ? slot.Substring(dash + 1) : slot;
+        var clean = new string(name.Where(char.IsLetterOrDigit).ToArray());
+        const int maxSlot = 20;
+        if (clean.Length > maxSlot) clean = clean.Substring(0, maxSlot);
+        clean += "Edited";
+        return Path.Combine(dir, "CAREER-" + clean);
     }
 
     protected override void OnClosed(EventArgs e)

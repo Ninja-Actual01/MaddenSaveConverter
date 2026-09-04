@@ -43,7 +43,7 @@ public static class SelfTest
         var scratch = Path.Combine(Path.GetTempPath(), "fs_selftest");
         Directory.CreateDirectory(scratch);
         var src = @"C:\Users\Ninja\Documents\Madden NFL 26\saves\CAREER-2027START";
-        var work = Path.Combine(scratch, "work.m26");
+        var work = Path.Combine(scratch, "CAREER-2027STARTEdited"); // game-eligible output name
         var bak = Path.Combine(scratch, "work.m26.bak");
         try
         {
