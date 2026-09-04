@@ -15,7 +15,36 @@ public static class SelfTest
     {
         if (args != null && args.Contains("--reverse")) return RunReverse();
         if (args != null && args.Contains("--studio")) return RunStudio();
+        if (args != null && args.Contains("--bgm")) return RunBgm();
         return RunForward();
+    }
+
+    // Validates the BGM player can actually start playing a real audio file from the
+    // shipped Music folder (fails fast if nothing is bundled).
+    static int RunBgm()
+    {
+        Console.WriteLine("== BGM player self-test ==");
+        var root = Path.Combine(AppContext.BaseDirectory, "Music");
+        int audios = Directory.Exists(root)
+            ? Directory.GetFiles(root).Where(f => f.EndsWith(".mp3") || f.EndsWith(".wav") || f.EndsWith(".m4a")).Count()
+            : 0;
+        Console.WriteLine($"  audio files in Music: {audios}");
+        try
+        {
+            var bgm = new BgmPlayer();
+            Console.WriteLine("  tracks loaded: " + (bgm.HasTracks ? "yes" : "no"));
+            bgm.Toggle();
+            System.Threading.Thread.Sleep(1200);
+            bool playing = bgm.IsPlaying;
+            Console.WriteLine("  now playing: '" + bgm.NowPlaying + "' isPlaying=" + playing);
+            bgm.Stop();
+            return playing ? 0 : (audios == 0 ? 0 : 3);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("BGM SELFTEST FAILED: " + ex.Message);
+            return 1;
+        }
     }
 
     // Exercises the C# FranchiseEngineClient against the real Node engine and a real
