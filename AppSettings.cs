@@ -12,7 +12,7 @@ public static class AppSettings
 {
     static string Path_ => Path.Combine(AppContext.BaseDirectory, "settings.json");
 
-    static bool _showIntro = true;   // default = show
+    static bool _showIntro = false;  // default = off
     static bool _hasIntroPref;       // false until the user decisively chooses
 
     public static bool ShowIntroOnBoot => _showIntro;

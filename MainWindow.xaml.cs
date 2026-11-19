@@ -18,7 +18,8 @@ public partial class MainWindow : Window
     static string TplM26 => Cli.TplM26;
     static string TplM27 => Cli.TplM27;
 
-    string _sourcePath;
+    readonly List<string> _sourcePaths = new();
+    string _manualOutputDir;
     FranchiseEngineClient _engine;
     BgmPlayer _bgm;
     string _studioOrigPath;   // the user's original (never modified)
@@ -34,6 +35,7 @@ public partial class MainWindow : Window
         Log("------------------------------------");
         Log($"M26 saves: {M26Saves}");
         Log($"M27 saves: {M27Saves}");
+        Log("Franchise schema: supports bundled M27 schemas (including M27 641.1 when present).");
         Log("");
         IntroToggle.IsChecked = AppSettings.ShowIntroOnBoot;
     }
@@ -70,12 +72,50 @@ public partial class MainWindow : Window
     {
         var dlg = new OpenFileDialog
         {
-            Title = "Pick a save file",
+            Title = "Pick save file(s) to convert",
             InitialDirectory = Directory.Exists(M27Saves) ? M27Saves : M26Saves,
-            Filter = "Save files (ROSTER-*, CAREERDRAFT-*, CAREER-*)|ROSTER-*;CAREERDRAFT-*;CAREER-*|All files (*.*)|*.*"
+            Filter = "Save files (ROSTER-*, CAREERDRAFT-*, CAREER-*)|ROSTER-*;CAREERDRAFT-*;CAREER-*|All files (*.*)|*.*",
+            Multiselect = true
         };
         if (dlg.ShowDialog(this) == true)
-            SourcePathBox.Text = _sourcePath = dlg.FileName;
+        {
+            _sourcePaths.Clear();
+            _sourcePaths.AddRange(dlg.FileNames.Where(File.Exists));
+            SourcePathBox.Text = _sourcePaths.Count == 1
+                ? _sourcePaths[0]
+                : $"{_sourcePaths.Count} files selected";
+        }
+    }
+
+    void BrowseOutput_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var dlg = new OpenFolderDialog
+            {
+                Title = "Select output folder for converted save files",
+                Multiselect = false
+            };
+            var cur = GetSelectedOutputDir();
+            if (!string.IsNullOrWhiteSpace(cur) && Directory.Exists(cur)) dlg.InitialDirectory = cur;
+            if (dlg.ShowDialog(this) == true)
+                OutputDirBox.Text = dlg.FolderName;
+        }
+        catch (Exception ex)
+        {
+            Log("[error] " + ex.Message);
+        }
+    }
+
+    void ClearOutput_Click(object sender, RoutedEventArgs e)
+    {
+        OutputDirBox.Text = "";
+    }
+
+    void OutputDir_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        _manualOutputDir = string.IsNullOrWhiteSpace(OutputDirBox?.Text) ? null : OutputDirBox.Text.Trim();
+        UpdateOutputNote();
     }
 
     void SourcePath_TextChanged(object sender, TextChangedEventArgs e)
@@ -83,57 +123,48 @@ public partial class MainWindow : Window
         DetectPanel.Visibility = Visibility.Collapsed;
         ConvertBtn.IsEnabled = false;
         OutputNote.Text = "";
-        if (!File.Exists(SourcePathBox.Text)) return;
+
+        if (_sourcePaths.Count == 0)
+        {
+            // Allow manual paste of a single path
+            if (File.Exists(SourcePathBox.Text))
+            {
+                _sourcePaths.Clear();
+                _sourcePaths.Add(SourcePathBox.Text);
+            }
+            else return;
+        }
 
         try
         {
-            var header = new byte[0x80];
-            using (var fs = File.OpenRead(SourcePathBox.Text))
-                if (fs.Read(header, 0, header.Length) < 0x2E) return;
-
-            if (System.Text.Encoding.ASCII.GetString(header, 0, 8) != "FBCHUNKS")
+            var infos = new List<(string path, string from, string to, string tpl, string kind, string ver, bool toM27)>();
+            foreach (var path in _sourcePaths)
             {
-                DetectPanel.Visibility = Visibility.Visible;
-                DetectText.Text = $"{Path.GetFileName(SourcePathBox.Text)} — not an FBCHUNKS save (draft classes and franchise files come in a later build)";
-                return;
+                var info = AnalyzeSource(path);
+                if (info == null)
+                {
+                    DetectPanel.Visibility = Visibility.Visible;
+                    DetectIcon.Text = "!";
+                    DetectText.Text = $"{Path.GetFileName(path)} — unsupported or not a recognized FBCHUNKS save (Madden 26/27 roster, draft class, or franchise).";
+                    return;
+                }
+                infos.Add(info.Value);
             }
 
-            var all = System.Text.Encoding.ASCII.GetString(header, 0, header.Length);
-            string ver;
-            int end = Array.IndexOf(header, (byte)0, 0x2E);
-            ver = System.Text.Encoding.ASCII.GetString(header, 0x2E, end < 0 ? 40 : end - 0x2E);
-            if (all.Contains("Madden-27")) ver = "Madden-27";
-            else if (all.Contains("Madden-26")) ver = "Madden-26";
-            string from, to, tpl;
-            string fn = Path.GetFileName(SourcePathBox.Text);
-            bool isDraft = fn.StartsWith("CAREERDRAFT", StringComparison.OrdinalIgnoreCase);
-            bool isFranchise = fn.StartsWith("CAREER-", StringComparison.OrdinalIgnoreCase) && !isDraft;
-            if (ver.Contains("Madden-27"))
-            {
-                from = "Madden 27"; to = "Madden 26";
-                tpl = isDraft ? Cli.TplDraftM26 : isFranchise ? Cli.TplFranchM26 : TplM26;
-                OutputNote.Text = $"Output → {M26Saves}\\{Path.GetFileName(SourcePathBox.Text)}";
-            }
-            else if (ver.Contains("Madden-26"))
-            {
-                from = "Madden 26"; to = "Madden 27";
-                tpl = isDraft ? Cli.TplDraftM27 : isFranchise ? Cli.TplFranchM27 : TplM27;
-                OutputNote.Text = $"Output → {M27Saves}\\{Path.GetFileName(SourcePathBox.Text)}";
-            }
-            else
-            {
-                DetectPanel.Visibility = Visibility.Visible;
-                DetectIcon.Text = "!";
-                DetectText.Text = $"Unrecognized version: {ver} — only Madden 26/27 rosters are supported right now";
-                return;
-            }
-
-            string kind = isDraft ? "draft class" : isFranchise ? "franchise" : "roster";
+            bool mixed = infos.Select(i => i.toM27).Distinct().Count() > 1 || infos.Select(i => i.kind).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1;
+            var first = infos[0];
             DetectPanel.Visibility = Visibility.Visible;
-            DetectText.Text = $"Detected: {from} {kind} ({ver})   →   will convert for {to}";
+            DetectIcon.Text = "▶";
+            if (infos.Count == 1)
+                DetectText.Text = $"Detected: {first.from} {first.kind} ({first.ver})   →   will convert for {first.to}";
+            else if (!mixed)
+                DetectText.Text = $"Detected: {infos.Count} files ({first.from} {first.kind})   →   will convert for {first.to}";
+            else
+                DetectText.Text = $"Detected: {infos.Count} files (mixed types/directions) — each file will be converted individually based on its detected version/type.";
 
-            ConvertBtn.IsEnabled = true;
-            ConvertBtn.Tag = tpl;
+            ConvertBtn.IsEnabled = infos.Count > 0;
+            ConvertBtn.Tag = mixed ? null : first.tpl;
+            UpdateOutputNote(infos);
         }
         catch (Exception ex)
         {
@@ -141,59 +172,162 @@ public partial class MainWindow : Window
         }
     }
 
+    (string path, string from, string to, string tpl, string kind, string ver, bool toM27)? AnalyzeSource(string path)
+    {
+        var header = new byte[0x80];
+        using (var fs = File.OpenRead(path))
+            if (fs.Read(header, 0, header.Length) < 0x2E) return null;
+
+        if (System.Text.Encoding.ASCII.GetString(header, 0, 8) != "FBCHUNKS")
+            return null;
+
+        var all = System.Text.Encoding.ASCII.GetString(header, 0, header.Length);
+        int end = Array.IndexOf(header, (byte)0, 0x2E);
+        string ver = System.Text.Encoding.ASCII.GetString(header, 0x2E, end < 0 ? 40 : end - 0x2E);
+        if (all.Contains("Madden-27")) ver = "Madden-27";
+        else if (all.Contains("Madden-26")) ver = "Madden-26";
+
+        string fn = Path.GetFileName(path);
+        bool isDraft = fn.StartsWith("CAREERDRAFT", StringComparison.OrdinalIgnoreCase);
+        bool isFranchise = fn.StartsWith("CAREER-", StringComparison.OrdinalIgnoreCase) && !isDraft;
+
+        string from, to, tpl;
+        bool toM27;
+        if (ver.Contains("Madden-27"))
+        {
+            from = "Madden 27"; to = "Madden 26"; toM27 = false;
+            tpl = isDraft ? Cli.TplDraftM26 : isFranchise ? Cli.TplFranchM26 : TplM26;
+        }
+        else if (ver.Contains("Madden-26"))
+        {
+            from = "Madden 26"; to = "Madden 27"; toM27 = true;
+            tpl = isDraft ? Cli.TplDraftM27 : isFranchise ? Cli.TplFranchM27 : TplM27;
+        }
+        else return null;
+
+        string kind = isDraft ? "draft class" : isFranchise ? "franchise" : "roster";
+        return (path, from, to, tpl, kind, ver, toM27);
+    }
+
+    string GetSelectedOutputDir() => string.IsNullOrWhiteSpace(OutputDirBox?.Text) ? _manualOutputDir : OutputDirBox.Text.Trim();
+
+    string ResolveOutputDir(bool toM27)
+    {
+        var manual = GetSelectedOutputDir();
+        if (!string.IsNullOrWhiteSpace(manual)) return manual;
+        return toM27 ? M27Saves : M26Saves;
+    }
+
+    string ResolveOutputPath(string srcPath, bool toM27)
+    {
+        return Path.Combine(ResolveOutputDir(toM27), Path.GetFileName(srcPath));
+    }
+
+    void UpdateOutputNote(List<(string path, string from, string to, string tpl, string kind, string ver, bool toM27)> infos = null)
+    {
+        if (_sourcePaths.Count == 0) { OutputNote.Text = ""; return; }
+        try
+        {
+            infos ??= _sourcePaths.Select(AnalyzeSource).Where(i => i != null).Select(i => i!.Value).ToList();
+            if (infos.Count == 0) { OutputNote.Text = ""; return; }
+            var dirs = infos.Select(i => ResolveOutputDir(i.toM27)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            if (infos.Count == 1)
+                OutputNote.Text = $"Output → {ResolveOutputPath(infos[0].path, infos[0].toM27)}";
+            else if (dirs.Count == 1)
+                OutputNote.Text = $"Output folder → {dirs[0]} ({infos.Count} files, original names preserved)";
+            else
+                OutputNote.Text = $"Output → default/manual folders by file direction ({infos.Count} files)";
+        }
+        catch { }
+    }
+
     async void Convert_Click(object sender, RoutedEventArgs e)
     {
         try
         {
             ConvertBtn.IsEnabled = false;
-            var srcPath = SourcePathBox.Text;
-            var tplPath = (string)ConvertBtn.Tag;
-            bool toM27 = tplPath == TplM27 || tplPath == Cli.TplDraftM27 || tplPath == Cli.TplFranchM27;
-            string fn2 = Path.GetFileName(srcPath);
-            bool isDraft = fn2.StartsWith("CAREERDRAFT", StringComparison.OrdinalIgnoreCase);
-            bool isFranchise = fn2.StartsWith("CAREER-", StringComparison.OrdinalIgnoreCase) && !isDraft;
-            string outDir = toM27 ? M27Saves : M26Saves;
-            string outPath = Path.Combine(outDir, Path.GetFileName(srcPath));
+            var sources = _sourcePaths.ToList();
+            if (sources.Count == 0 && File.Exists(SourcePathBox.Text)) sources.Add(SourcePathBox.Text);
+            if (sources.Count == 0)
+            {
+                Log("[error] No source file selected.");
+                ConvertBtn.IsEnabled = true;
+                return;
+            }
+
+            bool keepDraftPortraitWhenMissing = KeepDraftPortraitIdsCheck?.IsChecked == true;
+            bool keepDraftAssetWhenMissing = KeepDraftAssetNamesCheck?.IsChecked == true;
+
+            int okCount = 0, failCount = 0;
+            foreach (var srcPath in sources)
+            {
+                var info = AnalyzeSource(srcPath);
+                if (info == null)
+                {
+                    Log($"[skip] {srcPath} (unsupported format)");
+                    failCount++;
+                    continue;
+                }
+
+                var (_, _, _, tplPath, kind, _, toM27) = info.Value;
+                string outDir = ResolveOutputDir(toM27);
+                Directory.CreateDirectory(outDir);
+                string outPath = Path.Combine(outDir, Path.GetFileName(srcPath));
+                bool isDraft = kind == "draft class";
+                bool isFranchise = kind == "franchise";
+
+                Log("");
+                Log($"converting: {srcPath}");
+                Log($"type:       {kind}");
+                Log($"direction:  {(toM27 ? "M26 → M27" : "M27 → M26")}");
+                Log($"template:   {tplPath}");
+                Log($"output:     {outPath}");
+                if (isDraft)
+                {
+                    Log($"draft options: portraits={(keepDraftPortraitWhenMissing ? "keep source" : "use target template match / generic if missing")}, assets={(keepDraftAssetWhenMissing ? "keep source" : "use target template match / generic if missing")}");
+                }
+
+                ConvertResult res = await System.Threading.Tasks.Task.Run(() =>
+                {
+                    if (isDraft)
+                        return toM27 ? DraftConverter.M26ToM27(srcPath, tplPath, outPath, keepDraftPortraitWhenMissing, keepDraftAssetWhenMissing)
+                                     : DraftConverter.M27ToM26(srcPath, tplPath, outPath, keepDraftPortraitWhenMissing, keepDraftAssetWhenMissing);
+                    if (isFranchise)
+                        return toM27 ? FranchiseConverter.M26ToM27(srcPath, tplPath, outPath)
+                                     : FranchiseConverter.M27ToM26(srcPath, tplPath, outPath);
+                    var src = RosterFile.Load(srcPath);
+                    var tpl = RosterFile.Load(tplPath);
+                    return toM27
+                        ? RosterProfiles.M26ToM27(src, tpl, outPath)
+                        : RosterProfiles.M27ToM26(src, tpl, outPath);
+                });
+
+                foreach (var l in res.Log) Log("  " + l);
+
+                Log("verify:");
+                bool ok = res.Success && ((isDraft || isFranchise) ? File.Exists(outPath) : RosterFile.Verify(outPath, m => Log("  " + m)));
+                if (ok)
+                {
+                    Log($"DONE → {outPath}");
+                    okCount++;
+                }
+                else
+                {
+                    Log("FAILED verification/conversion for this file");
+                    failCount++;
+                }
+            }
 
             Log("");
-            Log($"converting: {srcPath}");
-            Log($"type:       {(isDraft ? "draft class" : isFranchise ? "franchise" : "roster")}");
-            Log($"direction:  {(toM27 ? "M26 → M27" : "M27 → M26")}");
-
-            var res = await System.Threading.Tasks.Task.Run(() =>
-            {
-                if (isDraft)
-                    return toM27 ? DraftConverter.M26ToM27(srcPath, tplPath, outPath)
-                                 : DraftConverter.M27ToM26(srcPath, tplPath, outPath);
-                if (isFranchise)
-                    return toM27 ? FranchiseConverter.M26ToM27(srcPath, tplPath, outPath)
-                                 : FranchiseConverter.M27ToM26(srcPath, tplPath, outPath);
-                var src = RosterFile.Load(srcPath);
-                var tpl = RosterFile.Load(tplPath);
-                return toM27
-                    ? RosterProfiles.M26ToM27(src, tpl, outPath)
-                    : RosterProfiles.M27ToM26(src, tpl, outPath);
-            });
-
-            foreach (var l in res.Log) Log("  " + l);
-
-            Log("verify:");
-            bool ok = (isDraft || isFranchise) ? File.Exists(outPath) : RosterFile.Verify(outPath, m => Log("  " + m));
-            if (ok)
-            {
-                Log($"DONE → {outPath}");
-                Log("back up your saves before loading this in-game!");
-            }
-            else
-            {
-                Log("FAILED verification - output was NOT written correctly");
-            }
-            ConvertBtn.IsEnabled = true;
+            Log($"Batch complete: {okCount} succeeded, {failCount} failed.");
+            if (okCount > 0) Log("Back up your saves before loading converted files in-game!");
+            ConvertBtn.IsEnabled = _sourcePaths.Count > 0 || File.Exists(SourcePathBox.Text);
+            UpdateOutputNote();
         }
         catch (Exception ex)
         {
             Log("[error] " + ex.Message);
-            ConvertBtn.IsEnabled = true;
+            ConvertBtn.IsEnabled = _sourcePaths.Count > 0 || File.Exists(SourcePathBox.Text);
         }
     }
 

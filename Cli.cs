@@ -174,45 +174,114 @@ public static class Cli
     public static int RunConvert(string[] args)
     {
         int i = Array.IndexOf(args, "--convert");
-        if (i + 2 >= args.Length)
+        if (i < 0)
         {
-            Console.WriteLine("usage: --convert <src> <out> [--zero-personas]");
+            Console.WriteLine("usage: --convert <src> [src2 ...] <out|--out-dir <dir>> [--zero-personas]");
             return 1;
         }
-        string srcPath = args[i + 1], outPath = args[i + 2];
+
         bool zeroPersonas = args.Contains("--zero-personas");
+        bool keepDraftPortraitWhenMissing = args.Contains("--keep-source-portraits-if-missing") || args.Contains("--keep-draft-portraits-source");
+        bool keepDraftAssetWhenMissing = args.Contains("--keep-source-assets-if-missing") || args.Contains("--keep-draft-assets-source");
+        string outDir = null;
+        string explicitOut = null;
+        var positionals = new List<string>();
+        for (int j = i + 1; j < args.Length; j++)
+        {
+            var a = args[j];
+            if (a == "--zero-personas" || a == "--keep-source-portraits-if-missing" || a == "--keep-draft-portraits-source" || a == "--keep-source-assets-if-missing" || a == "--keep-draft-assets-source") continue;
+            if (a == "--out-dir" && j + 1 < args.Length) { outDir = args[++j]; continue; }
+            if (a == "--out" && j + 1 < args.Length) { explicitOut = args[++j]; continue; }
+            if (a.StartsWith("--")) continue;
+            positionals.Add(a);
+        }
 
-        string ver = DetectVersion(srcPath);
-        if (ver == null) { Console.WriteLine("[error] not an FBCHUNKS M26/M27 save"); return 1; }
-        string fn = Path.GetFileName(srcPath);
-        bool isDraft = fn.StartsWith("CAREERDRAFT", StringComparison.OrdinalIgnoreCase);
-        bool isFranchise = fn.StartsWith("CAREER-", StringComparison.OrdinalIgnoreCase) && !isDraft;
-        string tplPath;
-        string kind;
-        bool isOlderRoster = ver == "M24" && !isDraft && !isFranchise;
-        if (isDraft) { tplPath = ver == "M27" ? TplDraftM26 : TplDraftM27; kind = "[draft]"; }
-        else if (isFranchise) { tplPath = ver == "M27" ? TplFranchM26 : TplFranchM27; kind = "[franchise]"; }
-        else if (isOlderRoster) { tplPath = TplM27; kind = "[roster M24->M27]"; }
-        else { tplPath = ver == "M27" ? TplM26 : TplM27; kind = "[roster]"; }
-        Console.WriteLine($"source: {srcPath} ({ver}) {kind}");
-        Console.WriteLine($"template: {tplPath}");
-        if (!isDraft && !isFranchise) Console.WriteLine($"personas: {(zeroPersonas ? "zeroed" : "randomized sampling")}");
+        if (positionals.Count < 1)
+        {
+            Console.WriteLine("usage: --convert <src> [src2 ...] <out|--out-dir <dir>> [--zero-personas]");
+            return 1;
+        }
 
-        ConvertResult res;
-        if (isDraft) res = ver == "M26" ? DraftConverter.M26ToM27(srcPath, tplPath, outPath) : DraftConverter.M27ToM26(srcPath, tplPath, outPath);
-        else if (isFranchise) res = ver == "M26" ? FranchiseConverter.M26ToM27(srcPath, tplPath, outPath) : FranchiseConverter.M27ToM26(srcPath, tplPath, outPath);
-        else if (isOlderRoster) res = RosterProfiles.M24ToM27(RosterFile.Load(srcPath), RosterFile.Load(tplPath), outPath);
-        else res = ver == "M26"
-                ? RosterProfiles.M26ToM27(RosterFile.Load(srcPath), RosterFile.Load(tplPath), outPath, !zeroPersonas)
-                : RosterProfiles.M27ToM26(RosterFile.Load(srcPath), RosterFile.Load(tplPath), outPath);
-        foreach (var l in res.Log) Console.WriteLine("  " + l);
+        List<string> sources;
+        if (explicitOut != null)
+        {
+            sources = positionals.ToList();
+        }
+        else if (outDir != null)
+        {
+            sources = positionals.ToList();
+        }
+        else if (positionals.Count == 2)
+        {
+            // backward-compatible: --convert <src> <out>
+            sources = new List<string> { positionals[0] };
+            explicitOut = positionals[1];
+        }
+        else
+        {
+            // multiple sources with implicit output dir per file
+            sources = positionals.ToList();
+        }
 
-        bool ok = true;
-        if (isDraft || isFranchise || isOlderRoster) ok = File.Exists(outPath) && new FileInfo(outPath).Length > 1000;
-        else RosterFile.Verify(outPath, m => { Console.WriteLine("  " + m); if (m.Contains("BAD") || m.Contains("FAIL")) ok = false; });
-        // For older rosters also verify via RosterFile even though we already checked existence
-        if (isOlderRoster) { RosterFile.Verify(outPath, m => Console.WriteLine("  " + m)); }
-        Console.WriteLine(ok && res.Success ? $"DONE -> {outPath}" : "FAILED");
-        return ok && res.Success ? 0 : 1;
+        if (sources.Count == 0)
+        {
+            Console.WriteLine("usage: --convert <src> [src2 ...] <out|--out-dir <dir>> [--zero-personas]");
+            return 1;
+        }
+
+        int okCount = 0, failCount = 0;
+        foreach (var srcPath in sources)
+        {
+            string ver = DetectVersion(srcPath);
+            if (ver == null) { Console.WriteLine($"[error] {srcPath}: not an FBCHUNKS M26/M27/M24 save"); failCount++; continue; }
+            string fn = Path.GetFileName(srcPath);
+            bool isDraft = fn.StartsWith("CAREERDRAFT", StringComparison.OrdinalIgnoreCase);
+            bool isFranchise = fn.StartsWith("CAREER-", StringComparison.OrdinalIgnoreCase) && !isDraft;
+            string tplPath;
+            string kind;
+            bool isOlderRoster = ver == "M24" && !isDraft && !isFranchise;
+            if (isDraft) { tplPath = ver == "M27" ? TplDraftM26 : TplDraftM27; kind = "[draft]"; }
+            else if (isFranchise) { tplPath = ver == "M27" ? TplFranchM26 : TplFranchM27; kind = "[franchise]"; }
+            else if (isOlderRoster) { tplPath = TplM27; kind = "[roster M24->M27]"; }
+            else { tplPath = ver == "M27" ? TplM26 : TplM27; kind = "[roster]"; }
+
+            bool toM27 = ver == "M26" || isOlderRoster;
+            string outPath;
+            if (explicitOut != null && sources.Count == 1) outPath = explicitOut;
+            else
+            {
+                var dir = outDir ?? (toM27 ? M27Saves : M26Saves);
+                Directory.CreateDirectory(dir);
+                outPath = Path.Combine(dir, Path.GetFileName(srcPath));
+            }
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outPath)) ?? ".");
+
+            Console.WriteLine($"source: {srcPath} ({ver}) {kind}");
+            Console.WriteLine($"template: {tplPath}");
+            Console.WriteLine($"output: {outPath}");
+            if (isDraft) Console.WriteLine($"draft options: portraits={(keepDraftPortraitWhenMissing ? "keep source" : "template match/generic if missing")}, assets={(keepDraftAssetWhenMissing ? "keep source" : "template match/generic if missing")}");
+            if (!isDraft && !isFranchise && !isOlderRoster) Console.WriteLine($"personas: {(zeroPersonas ? "zeroed" : "randomized sampling")}");
+
+            ConvertResult res;
+            if (isDraft) res = ver == "M26"
+                    ? DraftConverter.M26ToM27(srcPath, tplPath, outPath, keepDraftPortraitWhenMissing, keepDraftAssetWhenMissing)
+                    : DraftConverter.M27ToM26(srcPath, tplPath, outPath, keepDraftPortraitWhenMissing, keepDraftAssetWhenMissing);
+            else if (isFranchise) res = ver == "M26" ? FranchiseConverter.M26ToM27(srcPath, tplPath, outPath) : FranchiseConverter.M27ToM26(srcPath, tplPath, outPath);
+            else if (isOlderRoster) res = RosterProfiles.M24ToM27(RosterFile.Load(srcPath), RosterFile.Load(tplPath), outPath);
+            else res = ver == "M26"
+                    ? RosterProfiles.M26ToM27(RosterFile.Load(srcPath), RosterFile.Load(tplPath), outPath, !zeroPersonas)
+                    : RosterProfiles.M27ToM26(RosterFile.Load(srcPath), RosterFile.Load(tplPath), outPath);
+            foreach (var l in res.Log) Console.WriteLine("  " + l);
+
+            bool ok = true;
+            if (isDraft || isFranchise || isOlderRoster) ok = File.Exists(outPath) && new FileInfo(outPath).Length > 1000;
+            else RosterFile.Verify(outPath, m => { Console.WriteLine("  " + m); if (m.Contains("BAD") || m.Contains("FAIL")) ok = false; });
+            if (isOlderRoster) { RosterFile.Verify(outPath, m => Console.WriteLine("  " + m)); }
+            Console.WriteLine(ok && res.Success ? $"DONE -> {outPath}" : "FAILED");
+            if (ok && res.Success) okCount++; else failCount++;
+        }
+
+        Console.WriteLine($"Batch complete: {okCount} succeeded, {failCount} failed.");
+        return failCount == 0 ? 0 : 1;
     }
 }

@@ -38,21 +38,37 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- source picker -->
+        <!-- source/output pickers -->
         <Border Grid.Row="0" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource PanelBorderBrush}"
                 BorderThickness="1" CornerRadius="4" Padding="14">
             <StackPanel>
-                <TextBlock Grid.Row="0" FontSize="11" FontWeight="SemiBold"
+                <TextBlock FontSize="11" FontWeight="SemiBold"
                            Foreground="{StaticResource AccentBrush}" Margin="0,0,0,8">
-                    <Run Text="▪ "/><Run Text="SOURCE SAVE FILE"/></TextBlock>
+                    <Run Text="▪ "/><Run Text="SOURCE SAVE FILE(S)"/></TextBlock>
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <TextBox x:Name="SourcePathBox" Grid.Column="0" IsReadOnly="True"
-                             TextChanged="SourcePath_TextChanged" VerticalContentAlignment="Center"/>
+                             TextChanged="SourcePath_TextChanged" VerticalContentAlignment="Center"
+                             ToolTip="Select one or more save files to convert"/>
                     <Button x:Name="BrowseBtn" Grid.Column="1" Content="Browse…" Margin="10,0,0,0" Click="Browse_Click"/>
+                </Grid>
+
+                <TextBlock FontSize="11" FontWeight="SemiBold"
+                           Foreground="{StaticResource AccentBrush}" Margin="0,12,0,8">
+                    <Run Text="▪ "/><Run Text="OUTPUT FOLDER (OPTIONAL)"/></TextBlock>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="OutputDirBox" Grid.Column="0" VerticalContentAlignment="Center"
+                             TextChanged="OutputDir_TextChanged" ToolTip="Leave blank to use the default saves folder for each file"/>
+                    <Button Grid.Column="1" Content="Browse…" Margin="10,0,0,0" Click="BrowseOutput_Click"/>
+                    <Button Grid.Column="2" Content="Use Default" Margin="8,0,0,0" Click="ClearOutput_Click"/>
                 </Grid>
 
                 <Border x:Name="DetectPanel" Background="#00C04814" BorderBrush="{StaticResource PanelBorderBrush}"
@@ -60,17 +76,29 @@
                     <StackPanel Orientation="Horizontal">
                         <TextBlock x:Name="DetectIcon" Text="▶" Foreground="{StaticResource AccentBrush}"
                                    FontWeight="Bold" Margin="0,0,8,0"/>
-                        <TextBlock x:Name="DetectText" Foreground="{StaticResource TextBrush}"/>
+                        <TextBlock x:Name="DetectText" Foreground="{StaticResource TextBrush}" TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
             </StackPanel>
         </Border>
 
         <!-- convert -->
-        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,14,0,0">
-            <Button x:Name="ConvertBtn" Content="CONVERT" Padding="28,9" Click="Convert_Click" IsEnabled="False"/>
-            <TextBlock x:Name="OutputNote" VerticalAlignment="Center" Margin="16,0,0,0"
-                       Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" MaxWidth="520"/>
+        <StackPanel Grid.Row="2" Margin="0,14,0,0">
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                <TextBlock VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" Margin="0,0,10,0"
+                           Text="Draft class options (when converting CAREERDRAFT files):"/>
+                <CheckBox x:Name="KeepDraftPortraitIdsCheck" Content="Keep source portrait IDs" IsChecked="True"
+                          Foreground="{StaticResource TextBrush}" Margin="0,0,14,0"
+                          ToolTip="Checked (default): preserve portrait/appearance data from the source draft class. Unchecked: use target Madden template matches and generic/template portraits for players not found in the target template."/>
+                <CheckBox x:Name="KeepDraftAssetNamesCheck" Content="Keep source asset names" IsChecked="True"
+                          Foreground="{StaticResource TextBrush}"
+                          ToolTip="Checked (default): preserve asset names/cyberface IDs from the source draft class. Unchecked: use target Madden template matches and generic/template asset names for players not found in the target template."/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal">
+                <Button x:Name="ConvertBtn" Content="CONVERT" Padding="28,9" Click="Convert_Click" IsEnabled="False"/>
+                <TextBlock x:Name="OutputNote" VerticalAlignment="Center" Margin="16,0,0,0"
+                           Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" MaxWidth="520"/>
+            </StackPanel>
         </StackPanel>
 
         <!-- log -->
