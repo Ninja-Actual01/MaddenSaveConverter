@@ -108,23 +108,28 @@ node convert_franchise_m26_to_m27.mjs <source-franchise> <m27-template-franchise
 1. Andy Dalton is present in the converted save with intact `Team.Roster` and
    `DepthChart` chains, but he does not appear anywhere in Madden 27. Next
    suspect is his M26 portrait ID `4356` not resolving in M27.
-2. Character visuals/gear are not fully correct. M26/M27 asset names differ and
+2. Advancing the week crashes to desktop in TIGHT26. A reference audit found
+   that copied `Player[]` tables (notably the DepthChart backing array
+   `uid=889352590`) still contain references to the 56 retired template Player
+   rows. The next fix to try is clearing only references to retired template
+   rows (source row index >= 3133) inside `Player[]` tables.
+3. Character visuals/gear are not fully correct. M26/M27 asset names differ and
    many M27 visual-adjacent tables are still skipped by the tight profile.
-3. Contracts are still wrong. M27 moved contract data out of `Player` into
+4. Contracts are still wrong. M27 moved contract data out of `Player` into
    reference tables, and M26-only fields such as `ContractYear`,
    `ContractSalary0..7`, and `ContractBonus0..7` are dropped by the schema.
    Contract tables are now copied, but data is not fully reconstructed.
-4. Empty-record-chain rewrites, broad row-zeroing, and broad skipped-ref
+5. Empty-record-chain rewrites, broad row-zeroing, and broad skipped-ref
    clearing were tested and caused crashes. Do not re-enable them without
    in-game validation.
-5. A final reference comparison found 517 fields where the source value was an
+6. A final reference comparison found 517 fields where the source value was an
    empty reference but the output contains a real reference (examples in
    `Coach`, `CharacterVisuals`, etc.). These are likely stale template values
    from source-empty rows that were not zeroed outside `Player[]`.
-6. `Madden Franchise Tool` opens the converted save with a broken/cut-off
+7. `Madden Franchise Tool` opens the converted save with a broken/cut-off
    ribbon layout, while other franchise files open normally. The cause is
    unknown; possible incomplete port or UI/header table mismatch.
-7. Season, schedule, history, stats, and progression remain M27 template
+8. Season, schedule, history, stats, and progression remain M27 template
    defaults by design.
 
 ### Deployment / testing
@@ -132,7 +137,7 @@ node convert_franchise_m26_to_m27.mjs <source-franchise> <m27-template-franchise
 - Working repo: `E:\Game stuff\mods\Repos\Repos\MaddenSaveConverter`
 - Deployed app: `E:\Game stuff\mods\madden mod tools\Madden Save Converter`
 - Smaller fallback tool: `E:\Game stuff\mods\madden mod tools\Madden Save Converter.zip`
-- Current validation save: `CAREER-MSCTIGHT26` (pending in-game roster check)
+- Current validation save: `CAREER-MSCTIGHT26` (loads, Dalton absent, advancing week crashes)
 - Fallback save: `CAREER-MSCTIGHT12`
 - Do not tag/publish a release until a converted franchise loads with correct
   rosters and no duplicated or missing players.
