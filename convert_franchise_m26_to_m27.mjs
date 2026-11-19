@@ -38,11 +38,20 @@ async function convert(srcPath, tplPath, outPath){
         let tRec = tplTable.records[i];
         if(sRec.isEmpty && tRec.isEmpty) continue;
         if(sRec.isEmpty || tRec.isEmpty) continue;
-        let sKeys = Object.keys(sRec);
+        let sFields = sRec.fields || {};
+        let tFields = tRec.fields || {};
+        let sKeys = Object.keys(sFields);
         for(let k of sKeys){
-          if(k.startsWith('_') || k==='isEmpty' || k==='index' || k==='header') continue;
-          if(!(k in tRec)) continue;
-          try{ tRec[k] = sRec[k]; copied++; }catch(e){}
+          if(!(k in tFields)) continue;
+          try {
+            const sField = sRec.getFieldByKey ? sRec.getFieldByKey(k) : sFields[k];
+            const tField = tRec.getFieldByKey ? tRec.getFieldByKey(k) : tFields[k];
+            // Skip reference/complex fields to reduce cross-version corruption/crashes
+            if (sField && (sField.isReference || (sField.offset && sField.offset.isReference))) continue;
+            if (tField && (tField.isReference || (tField.offset && tField.offset.isReference))) continue;
+            tRec[k] = sRec[k];
+            copied++;
+          } catch(e) {}
         }
       }
     }
