@@ -21,10 +21,17 @@ async function convert(srcPath, tplPath, outPath){
     await tpl.parse();
     console.log(`tpl tables ${tpl.tables.length}`);
 
-    let common=0, copied=0, skipped=0;
+    let common=0, copied=0, skipped=0, skippedTables=0;
+    const skipTablePatterns = [
+      /Event$/i, /Reaction$/i, /Transaction/i, /Request$/i, /Manager$/i, /Director$/i,
+      /Eval$/i, /Arc/i, /Quest/i, /Scenario/i, /Story/i, /Flow/i, /CareerFlow/i,
+      /ThemeWeek/i, /Marketplace/i, /Notification/i, /Trophy/i, /History/i,
+      /^Advance/i, /AutoSim/i, /Patch/i, /Version/i, /Schema/i
+    ];
     for(let srcTable of src.tables){
       let name = srcTable.header.name;
       if(!name || name.startsWith('\0')) continue;
+      if (skipTablePatterns.some(rx => rx.test(name))) { skippedTables++; continue; }
       let tplTable = tpl.tables.find(t=> t.header.name===name);
       if(!tplTable) continue;
       // Load records
@@ -38,15 +45,24 @@ async function convert(srcPath, tplPath, outPath){
         let tRec = tplTable.records[i];
         if(sRec.isEmpty && tRec.isEmpty) continue;
         if(sRec.isEmpty || tRec.isEmpty) continue;
-        let sKeys = Object.keys(sRec);
+        let sFields = sRec.fields || {};
+        let tFields = tRec.fields || {};
+        let sKeys = Object.keys(sFields);
         for(let k of sKeys){
-          if(k.startsWith('_') || k==='isEmpty' || k==='index' || k==='header') continue;
-          if(!(k in tRec)) continue;
-          try{ tRec[k] = sRec[k]; copied++; }catch(e){}
+          if(!(k in tFields)) continue;
+          try {
+            const sField = sRec.getFieldByKey ? sRec.getFieldByKey(k) : sFields[k];
+            const tField = tRec.getFieldByKey ? tRec.getFieldByKey(k) : tFields[k];
+            // Skip reference/complex fields to reduce cross-version corruption/crashes
+            if (sField && (sField.isReference || (sField.offset && sField.offset.isReference))) continue;
+            if (tField && (tField.isReference || (tField.offset && tField.offset.isReference))) continue;
+            tRec[k] = sRec[k];
+            copied++;
+          } catch(e) {}
         }
       }
     }
-    console.log(`common tables ${common}, fields copied ${copied}`);
+    console.log(`common tables ${common}, fields copied ${copied}, skipped system tables ${skippedTables}`);
     await tpl.save(outPath);
     console.log(`saved to ${outPath} size ${fs.statSync(outPath).size}`);
   } finally {
