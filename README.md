@@ -1,4 +1,4 @@
-# Legion of Loom Football Game Tool (Madden Save Converter)
+# Madden Save Converter
 
 Windows tools for Madden/football save workflows, including bidirectional roster conversion between **Madden 26** and **Madden 27** and **Franchise Studio** (franchise save editing) targeting supported Madden/CFB titles.
 

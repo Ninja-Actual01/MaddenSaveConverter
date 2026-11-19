@@ -27,21 +27,6 @@ public partial class App : Application
             return;
         }
         BootSound.Play();
-        PlayIntroIfNeeded();
         base.OnStartup(e);
-    }
-
-    // Play the intro video only when explicitly enabled by the user (off by default).
-    static void PlayIntroIfNeeded()
-    {
-        try
-        {
-            bool shouldPlay = AppSettings.HasIntroPref && AppSettings.ShowIntroOnBoot;
-            if (!shouldPlay) return;
-
-            var intro = new IntroVideo();
-            intro.ShowDialog(); // blocks until the video ends or the user skips
-        }
-        catch { /* never break startup */ }
     }
 }

@@ -128,7 +128,7 @@ public static class SelfTest
     // template = the original M26 roster. Validates salaries migrate back into PLAY.
     static int RunReverse()
     {
-        Console.WriteLine("== Legion of Loom FGT self-test (reverse: M27 -> M26) ==");
+        Console.WriteLine("== Madden Save Converter self-test (reverse: M27 -> M26) ==");
         try
         {
             var m27src = @"C:\Users\Ninja\AppData\Local\Temp\opencode\m26to27\ROSTER-M26CONVERTED";
@@ -174,7 +174,7 @@ public static class SelfTest
         var jsOut = @"C:\Users\Ninja\AppData\Local\Temp\opencode\m26to27\ROSTER-M26CONVERTED";
         var outPath = Path.Combine(Path.GetTempPath(), "mfc_selftest_ROSTER-2019");
 
-        Console.WriteLine("== Legion of Loom FGT self-test ==");
+        Console.WriteLine("== Madden Save Converter self-test ==");
         try
         {
             Console.WriteLine("loading source (M26 ROSTER-2019)...");

@@ -31,25 +31,18 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        Log("LEGION OF LOOM FOOTBALL GAME TOOL");
-        Log("------------------------------------");
+        Log("Madden Save Converter");
+        Log("----------------------");
         Log($"M26 saves: {M26Saves}");
         Log($"M27 saves: {M27Saves}");
         Log("Franchise schema: supports bundled M27 schemas (including M27 641.1 when present).");
         Log("");
-        IntroToggle.IsChecked = AppSettings.ShowIntroOnBoot;
     }
 
     void Log(string s)
     {
         LogBox.AppendText(s + Environment.NewLine);
         LogBox.ScrollToEnd();
-    }
-
-    void IntroToggle_Changed(object sender, RoutedEventArgs e)
-    {
-        if (IntroToggle != null && IntroToggle.IsChecked.HasValue)
-            AppSettings.SetIntroEnabled(IntroToggle.IsChecked.Value);
     }
 
     void BgmToggle_Click(object sender, RoutedEventArgs e)

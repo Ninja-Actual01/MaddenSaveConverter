@@ -51,6 +51,9 @@ async function convert(srcPath, tplPath, outPath, profile = 'full') {
       'Player', 'Player[]', 'Team', 'Team[]', 'Coach', 'Coach[]', 'DepthChart',
       'RosterInfo', 'PlayerPersonnel', 'Stadium', 'StadiumOwnerData',
       'Owner', 'CharacterVisuals',
+      'PlayerContract', 'PlayerBaseContract', 'PlayerBaseContract[]',
+      'ContractOffer', 'ContractOffer[]', 'PlayerContractManager',
+      'ContractIncentive',
       'UserRegistry', 'User[]', 'FranchiseUser'
     ]);
     function copyAllowed(name) {
@@ -149,6 +152,35 @@ async function convert(srcPath, tplPath, outPath, profile = 'full') {
     }
     const srcPlayerTableId = srcPlayerTable?.header?.tableId;
 
+    // Team row numbers differ between M26/M27 (two empty source slots), so map
+    // source row -> target row by AssetName for team table references only.
+    // Player.TeamIndex uses TEAM_LOGO IDs, which are identical in both versions,
+    // so numeric team fields must be copied unchanged.
+    const srcTeamTable = src.tables.find(t => t.header?.uniqueId === 637929298);
+    const tplTeamTable = tpl.tables.find(t => t.header?.uniqueId === 637929298);
+    await srcTeamTable?.readRecords();
+    await tplTeamTable?.readRecords();
+    function teamKey(rec) {
+      return (rec?.AssetName || rec?.DisplayName || rec?.NickName || '').toString().trim();
+    }
+    const srcTeamRowToTarget = new Map();
+    if (srcTeamTable && tplTeamTable) {
+      const tplRowByKey = new Map();
+      tplTeamTable.records.forEach((r, i) => {
+        if (!r || r.isEmpty) return;
+        const key = teamKey(r);
+        if (key && !tplRowByKey.has(key)) tplRowByKey.set(key, i);
+      });
+      srcTeamTable.records.forEach((r, i) => {
+        if (!r || r.isEmpty) return;
+        const target = tplRowByKey.get(teamKey(r));
+        if (target !== undefined) srcTeamRowToTarget.set(i, target);
+      });
+    }
+    const srcTeamTableId = srcTeamTable?.header?.tableId;
+
+    const TEAM_FREE_AGENTS = 32;
+
     function dec2bin(n, bits) {
       return (n >>> 0).toString(2).padStart(bits, '0').slice(-bits);
     }
@@ -167,9 +199,15 @@ async function convert(srcPath, tplPath, outPath, profile = 'full') {
         // same lookup, so those row indices are valid as-is.
         return srcTableIds.has(srcTableId) ? null : value;
       }
+      let outRow = rowNumber;
+      if (srcTableId === srcTeamTableId) {
+        const mapped = srcTeamRowToTarget.get(rowNumber);
+        if (mapped === undefined) return null;
+        outRow = mapped;
+      }
       const targetTable = tplById.get(targetTableId);
-      if (targetTable && rowNumber >= (targetTable.header.recordCapacity || Infinity)) return null;
-      return dec2bin(targetTableId, 15) + dec2bin(rowNumber, 17);
+      if (targetTable && outRow >= (targetTable.header.recordCapacity || Infinity)) return null;
+      return dec2bin(targetTableId, 15) + dec2bin(outRow, 17);
     }
 
     // Mirror the source save's empty-record linked list onto the M27 table.
@@ -268,10 +306,13 @@ async function convert(srcPath, tplPath, outPath, profile = 'full') {
 
       const n = Math.min(srcTable.records.length, tplTable.records.length);
       let modified = false;
+      const useTeamMap = name === 'Team' && srcTeamRowToTarget.size > 0;
 
-      for (let i = 0; i < n; i++) {
+      for (let i = 0; i < srcTable.records.length; i++) {
         const sRec = srcTable.records[i];
-        const tRec = tplTable.records[i];
+        const targetIndex = useTeamMap ? (srcTeamRowToTarget.get(i) ?? i) : i;
+        if (targetIndex >= tplTable.records.length) continue;
+        const tRec = tplTable.records[targetIndex];
         if (!tRec) continue;
         if (!sRec || sRec.isEmpty) {
           if (clearEmptySlots && tRec && !tRec.isEmpty) {
@@ -358,8 +399,8 @@ async function convert(srcPath, tplPath, outPath, profile = 'full') {
             tRec.FirstName = '';
             tRec.LastName = '';
             tRec.PLYR_ASSETNAME = '';
-            tRec.TeamIndex = 32;
-            tRec.PrevTeamIndex = 32;
+            tRec.TeamIndex = TEAM_FREE_AGENTS;
+            tRec.PrevTeamIndex = TEAM_FREE_AGENTS;
             tRec.ContractStatus = 'Retired';
             tRec.PLYR_CAREERPHASE = 'Retired';
             neutralized++;
@@ -388,7 +429,32 @@ async function convert(srcPath, tplPath, outPath, profile = 'full') {
       if (modified) modifiedTables++;
     }
 
-    console.log(`profile=${profile}, common tables ${common}, fields copied ${copied}, refs remapped ${copiedRefs}, rows cleared ${cleared}, stale players retired ${neutralized}, skipped tables ${skippedTables}`);
+    // Tables that are not copied keep their M27 template references. Those
+    // references point into Player row indices that now hold M26 players, so
+    // the game shows phantom duplicates. Clear every such reference.
+    const tplPlayerTable = tpl.tables.find(t => t.header?.uniqueId === 1612938518);
+    const tplPlayerTableId = tplPlayerTable?.header?.tableId;
+    let clearedSkippedRefs = 0, skippedRefTables = 0;
+    if (tplPlayerTableId) {
+      const clearRefsIn = new Set(['PlayerAcquisitionEvaluation', 'HistoryEntry']);
+      for (const t of tpl.tables) {
+        if (!t.header?.name || !clearRefsIn.has(t.header.name)) continue;
+        try { await t.readRecords(); } catch { continue; }
+        let n = 0;
+        for (const r of t.records) {
+          if (!r) continue;
+          for (const k of Object.keys(r.fields || {})) {
+            const v = r[k];
+            if (typeof v !== 'string' || !/^[01]{32}$/.test(v)) continue;
+            if (parseInt(v.slice(0, 15), 2) !== tplPlayerTableId) continue;
+            try { r[k] = '00000000000000000000000000000000'; n++; } catch {}
+          }
+        }
+        if (n) { clearedSkippedRefs += n; skippedRefTables++; }
+      }
+    }
+
+    console.log(`profile=${profile}, common tables ${common}, fields copied ${copied}, refs remapped ${copiedRefs}, rows cleared ${cleared}, stale players retired ${neutralized}, skipped-refs cleared ${clearedSkippedRefs} in ${skippedRefTables} tables, skipped tables ${skippedTables}`);
     console.log(`match=uniqueId, skippedRefs=${skippedRefs}, skippedType=${skippedType}, skippedWidth=${skippedWidth}, modifiedTables=${modifiedTables}, readSkipped=${skipped}`);
     await tpl.save(outPath);
     console.log(`saved to ${outPath} size ${fs.statSync(outPath).size}`);

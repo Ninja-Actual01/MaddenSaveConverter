@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
-        <!-- Legion of Loom brand palette: deep black + vivid green -->
+        <!-- Dark UI palette -->
         <SolidColorBrush x:Key="BgBrush" Color="#060806"/>
         <SolidColorBrush x:Key="BgBrushDeep" Color="#030503"/>
         <SolidColorBrush x:Key="PanelBrush" Color="#0D120D"/>
