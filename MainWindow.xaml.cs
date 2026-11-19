@@ -124,16 +124,29 @@ public partial class MainWindow : Window
         ConvertBtn.IsEnabled = false;
         OutputNote.Text = "";
 
-        if (_sourcePaths.Count == 0)
+        // Keep selected sources in sync with the path box:
+        // - if the box contains a valid file path, treat it as the selected source (supports browse/paste edits)
+        // - if it shows the multi-file summary ("N files selected"), keep existing multi-file selection
+        var text = SourcePathBox.Text?.Trim() ?? "";
+        if (File.Exists(text))
         {
-            // Allow manual paste of a single path
-            if (File.Exists(SourcePathBox.Text))
+            if (_sourcePaths.Count != 1 || !string.Equals(_sourcePaths[0], text, StringComparison.OrdinalIgnoreCase))
             {
                 _sourcePaths.Clear();
-                _sourcePaths.Add(SourcePathBox.Text);
+                _sourcePaths.Add(text);
             }
-            else return;
         }
+        else if (_sourcePaths.Count == 1 && !string.Equals(_sourcePaths[0], text, StringComparison.OrdinalIgnoreCase))
+        {
+            // Single-file selection was replaced/cleared in the textbox
+            _sourcePaths.Clear();
+            return;
+        }
+        else if (_sourcePaths.Count == 0)
+        {
+            return;
+        }
+        // else: multi-file selection summary text -> keep _sourcePaths as-is
 
         try
         {
@@ -196,12 +209,12 @@ public partial class MainWindow : Window
         if (ver.Contains("Madden-27"))
         {
             from = "Madden 27"; to = "Madden 26"; toM27 = false;
-            tpl = isDraft ? Cli.TplDraftM26 : isFranchise ? Cli.TplFranchM26 : TplM26;
+            tpl = isDraft ? Cli.TplDraftM26 : isFranchise ? Cli.ResolveFranchTpl("M26", "CAREER-TemplateM26", path) : TplM26;
         }
         else if (ver.Contains("Madden-26"))
         {
             from = "Madden 26"; to = "Madden 27"; toM27 = true;
-            tpl = isDraft ? Cli.TplDraftM27 : isFranchise ? Cli.TplFranchM27 : TplM27;
+            tpl = isDraft ? Cli.TplDraftM27 : isFranchise ? Cli.ResolveFranchTpl("M27", "CAREER-TemplateM27", path) : TplM27;
         }
         else return null;
 

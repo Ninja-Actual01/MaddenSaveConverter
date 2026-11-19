@@ -31,18 +31,44 @@ public static class Cli
         }
         return p;
     }
-    static string ResolveFranchTpl(string tag, string tplName)
+    public static string ResolveFranchTpl(string tag, string tplName, string? excludePath = null)
     {
         var p = Path.Combine(AppContext.BaseDirectory, "Templates", tplName);
         if (File.Exists(p)) return p;
         var saves = tag == "M27" ? M27Saves : M26Saves;
         if (Directory.Exists(saves))
         {
-            var files = Directory.GetFiles(saves, "CAREER-*").Where(f => !Path.GetFileName(f).StartsWith("CAREERDRAFT")).ToArray();
-            var pref = files.FirstOrDefault(f => Path.GetFileName(f).Contains("2011") || Path.GetFileName(f).Contains("2020"));
-            if (pref != null) return pref;
-            var f = files.FirstOrDefault();
-            if (f != null) return f;
+            var files = Directory.GetFiles(saves, "CAREER-*")
+                .Where(f => !Path.GetFileName(f).StartsWith("CAREERDRAFT", StringComparison.OrdinalIgnoreCase))
+                .Where(f => string.IsNullOrWhiteSpace(excludePath) || !string.Equals(Path.GetFullPath(f), Path.GetFullPath(excludePath), StringComparison.OrdinalIgnoreCase))
+                .Select(f => new FileInfo(f))
+                .ToList();
+
+            if (files.Count > 0)
+            {
+                // Prefer likely-clean/base franchise saves over recently converted/edited outputs.
+                // Avoid names that look like converted/test outputs.
+                string[] badTokens = { "THROWBACK", "BETA", "TEST", "CONVERT", "EDITED", "AUTOSAVE" };
+                var candidates = files
+                    .Select(fi => new
+                    {
+                        fi,
+                        name = fi.Name,
+                        bad = badTokens.Any(t => fi.Name.Contains(t, StringComparison.OrdinalIgnoreCase)),
+                        baseLike = fi.Name.Contains("32M27", StringComparison.OrdinalIgnoreCase)
+                                || fi.Name.Contains("32M26", StringComparison.OrdinalIgnoreCase)
+                                || fi.Name.Contains("2027", StringComparison.OrdinalIgnoreCase)
+                                || fi.Name.Contains("2020", StringComparison.OrdinalIgnoreCase)
+                    })
+                    .OrderByDescending(x => x.baseLike)
+                    .ThenBy(x => x.bad)
+                    .ThenBy(x => x.fi.LastWriteTimeUtc)
+                    .ThenBy(x => x.name, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                var pick = candidates.FirstOrDefault()?.fi.FullName;
+                if (pick != null) return pick;
+            }
         }
         return p;
     }
@@ -241,7 +267,7 @@ public static class Cli
             string kind;
             bool isOlderRoster = ver == "M24" && !isDraft && !isFranchise;
             if (isDraft) { tplPath = ver == "M27" ? TplDraftM26 : TplDraftM27; kind = "[draft]"; }
-            else if (isFranchise) { tplPath = ver == "M27" ? TplFranchM26 : TplFranchM27; kind = "[franchise]"; }
+            else if (isFranchise) { tplPath = ver == "M27" ? ResolveFranchTpl("M26", "CAREER-TemplateM26", srcPath) : ResolveFranchTpl("M27", "CAREER-TemplateM27", srcPath); kind = "[franchise]"; }
             else if (isOlderRoster) { tplPath = TplM27; kind = "[roster M24->M27]"; }
             else { tplPath = ver == "M27" ? TplM26 : TplM27; kind = "[roster]"; }
 
