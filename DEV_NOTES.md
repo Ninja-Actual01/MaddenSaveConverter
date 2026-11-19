@@ -55,3 +55,52 @@ node convert_m27_to_m26.js <m27 roster> <m26 template> <output path>
 - Validate conversions on copies of saves/rosters.
 - Keep backups of original files before conversion or franchise edits.
 - When publishing a GitHub release, include the latest self-contained Windows build artifacts and summarize user-facing changes and any compatibility notes.
+
+## Franchise conversion status (M26 -> M27) — experimental
+
+`convert_franchise_m26_to_m27.mjs` is still experimental. It accepts a fourth
+profile argument: `full`, `core`, or `tight`.
+
+- `full` / `core`: copy many more tables but crash to desktop immediately after
+  selecting the franchise in Madden 27. Not usable.
+- `tight`: copies only core player/roster/team/coach/user tables. This loads in
+  Madden 27 and depth-chart auto-order works, but roster accuracy is not final.
+
+### Verified working pieces
+
+- Table matching uses stable `uniqueId`, not `tableId` (which differs between
+  M26 and M27).
+- References are remapped by `uniqueId`; interned-string references are passed
+  through unchanged.
+- All 3,133 non-empty source `Player` rows are copied correctly:
+  0 missing rows, 0 name mismatches, 0 team mismatches.
+- `Player[]` rows that are empty in the source are cleared and their remaining
+  bytes are zeroed, which removes stale M27 template player references.
+- 56 stale M27 `Player` records are retired/blanked so they should not occupy
+  roster slots.
+- `M27_641_1.gz` must remain present under
+  `node_modules/madden-franchise/data/schemas/27/` for M27 conversion.
+
+### Known issues (do not publish as a stable release yet)
+
+1. Duplicate and missing players are still reported in-game even with the
+   `tight` profile.
+2. Empty-record-chain rewrites were tested and caused crashes; they are
+   disabled in the converter. Do not re-enable them without in-game validation.
+3. A final reference comparison found 517 fields where the source value was an
+   empty reference but the output contains a real reference (examples in
+   `Coach`, `CharacterVisuals`, etc.). These are likely stale template values
+   from source-empty rows that were not zeroed outside `Player[]`.
+4. `Madden Franchise Tool` opens the converted save with a broken/cut-off
+   ribbon layout, while other franchise files open normally. The cause is
+   unknown; possible incomplete port or UI/header table mismatch.
+5. Season, schedule, history, stats, and progression remain M27 template
+   defaults by design.
+
+### Deployment / testing
+
+- Working repo: `E:\Game stuff\mods\Repos\Repos\MaddenSaveConverter`
+- Deployed app: `E:\Game stuff\mods\madden mod tools\Madden Save Converter`
+- Latest validation save: `CAREER-MSCTIGHT12`
+- Do not tag/publish a release until a converted franchise loads with correct
+  rosters and no duplicated or missing players.
