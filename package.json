@@ -1,6 +1,6 @@
 {
   "name": "maddensaveconverter",
-  "version": "1.2.0",
+  "version": "1.2.5",
   "private": true,
   "type": "module",
   "description": "Madden/CFB franchise editor engine (madden-franchise based). Native deps vendored in node_modules.",

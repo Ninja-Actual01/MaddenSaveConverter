@@ -84,7 +84,7 @@ node convert_franchise_m26_to_m27.mjs <m26-source> <m27-base> <m27-out> select:c
 - Validate conversions on copies of saves/rosters.
 - Keep backups of original files before conversion or franchise edits.
 - When publishing a GitHub release, include the latest self-contained Windows build artifacts and summarize user-facing changes and any compatibility notes.
-- Do not tag/publish a release until a converted franchise loads with correct rosters and no duplicated or missing players.
+- Do not tag/publish a **stable** release until a converted franchise loads with correct rosters and no duplicated or missing players. Experimental releases must state those limitations clearly.
 
 ## Franchise conversion status (M26 -> M27) — experimental
 
