@@ -51,8 +51,9 @@ It never copies `Player`, `Player[]`, or `DepthChart`, and it automatically back
 up an existing output file before writing. All select groups now follow the same
 cell-by-cell rule: fields are matched by name, only fields present and compatible
 in both schemas are copied, unmatched fields/rows are ignored, and empty target
-rows are never unemptied. Available groups: `coaches`, `staff`, `stadiums`
-(disabled), `teamnames`, `identity`, `personnel`, `contracts`, `draftclass`.
+rows are never unemptied. Currently usable group: `coaches`. `staff`, `teamnames`, `personnel`,
+`contracts`, and `draftclass` are defined but unvalidated. `stadiums` and
+`identity` are disabled because copying their tables blanks the M27 UI.
 
 `select:coaches` does **not** paste whole rows by row number. M26 and M27 order
 their Coach tables differently. It matches each team by `AssetName`, follows that

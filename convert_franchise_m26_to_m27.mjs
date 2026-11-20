@@ -67,7 +67,9 @@ async function convert(srcPath, tplPath, outPath, profile = 'full') {
       // in the shared string table via Team.Stadium, which already matches.
       stadiums: [],
       teamnames: [/^Team$/i],
-      identity: [/^Owner$/i, /^UserRegistry$/i, /^User\[\]$/i, /^FranchiseUser$/i],
+      // Disabled: copying Owner/UserRegistry/User[]/FranchiseUser blanks the
+      // M27 UI. The validated workflow is coach-only for now.
+      identity: [],
       personnel: [/^PlayerPersonnel$/i, /^RosterInfo$/i],
       contracts: [/^Contract/i, /^PlayerContract/i, /^PlayerBaseContract/i],
       draftclass: [/^DraftClass/i]
@@ -593,7 +595,7 @@ async function convert(srcPath, tplPath, outPath, profile = 'full') {
 const args = process.argv.slice(2);
 if (args.length < 3) {
   console.log('usage: node convert_franchise_m26_to_m27.mjs <src> <base> <out> [full|core|tight|select:group1,group2]');
-  console.log('select groups: coaches, staff, stadiums(disabled), teamnames, identity, personnel, contracts, draftclass');
+  console.log('select groups: coaches, staff, teamnames, personnel, contracts, draftclass; stadiums/identity disabled');
   console.log('select mode never copies Player/Player[]/DepthChart and auto-backs up an existing output file.');
   process.exit(1);
 }
