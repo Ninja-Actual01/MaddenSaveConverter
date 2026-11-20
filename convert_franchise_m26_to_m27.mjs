@@ -72,10 +72,15 @@ async function convert(srcPath, tplPath, outPath, profile = 'full') {
     const selectTokens = profile.startsWith('select:')
       ? profile.slice(7).split(',').map(s => s.trim()).filter(Boolean)
       : [];
+    // The Coach table rows are ordered differently in M26 and M27. Copying by
+    // row index puts the wrong names on each team. In select mode, the coaches
+    // group instead maps each team's coach references by AssetName.
+    const coachIdentityMode = profile.startsWith('select:') && selectTokens.includes('coaches');
     const forbiddenSelectNames = new Set(['Player', 'Player[]', 'DepthChart']);
     function copyAllowed(name) {
       if (profile.startsWith('select:')) {
         if (forbiddenSelectNames.has(name)) return false;
+        if (coachIdentityMode && /^Coach/i.test(name)) return false;
         for (const tok of selectTokens) {
           if (selectGroups[tok]?.some(rx => rx.test(name))) return true;
           if (tok === name) return true;
@@ -203,6 +208,90 @@ async function convert(srcPath, tplPath, outPath, profile = 'full') {
       });
     }
     const srcTeamTableId = srcTeamTable?.header?.tableId;
+
+    function refInfo(value) {
+      if (typeof value !== 'string' || !/^[01]{32}$/.test(value)) return null;
+      const tableId = parseInt(value.slice(0, 15), 2);
+      const row = parseInt(value.slice(15, 32), 2);
+      return tableId === 0 ? null : { tableId, row };
+    }
+    function coachRowFor(teamRec, key, coachTableId) {
+      const info = refInfo(teamRec?.[key]);
+      return info && info.tableId === coachTableId ? info.row : null;
+    }
+    function findLargestTable(file, uniqueId, name) {
+      const byId = file.tables.find(t => t.header?.uniqueId === uniqueId);
+      if (byId) return byId;
+      return file.tables
+        .filter(t => t.header?.name === name)
+        .reduce((a, b) => !a || (b.header?.recordCapacity || 0) > (a.header?.recordCapacity || 0) ? b : a, null);
+    }
+
+    // Identity/presentation/team/career fields to paste from each M26 team's
+    // coach onto the M27 coach row that same team references.
+    const coachIdentityFields = [
+      'AssetName', 'GenericHeadAssetName', 'Name', 'LastName', 'FirstName',
+      'Portrait', 'PresentationId', 'FaceShape', 'Portrait_Swappable_Library_Path',
+      'TeamIndex', 'PrevTeamIndex', 'Position', 'OriginalPosition',
+      'Age', 'ExperiencePoints', 'YearsCoaching', 'SeasonsWithTeam', 'Level',
+      'CareerWins', 'CareerLosses', 'CareerTies',
+      'CareerPlayoffWins', 'CareerPlayoffLosses',
+      'CareerSuperbowlWins', 'CareerSuperbowlLosses',
+      'SeasWins', 'SeasLosses', 'SeasTies'
+    ];
+    const coachRoles = ['HeadCoach', 'OffensiveCoordinator', 'DefensiveCoordinator', 'UserCharacter'];
+    let coachCopies = 0, coachTeams = 0;
+
+    async function copyCoachIdentitiesByTeam() {
+      if (!coachIdentityMode || !srcTeamTable || !tplTeamTable) return;
+      const srcCoach = findLargestTable(src, 1860529246, 'Coach');
+      const tplCoach = findLargestTable(tpl, 1860529246, 'Coach');
+      if (!srcCoach || !tplCoach) return;
+      try {
+        await srcCoach.readRecords();
+        await tplCoach.readRecords();
+      } catch {
+        return;
+      }
+
+      const srcRows = new Map();
+      const tplRows = new Map();
+      srcTeamTable.records.forEach((r, i) => {
+        const key = teamKey(r);
+        if (key && r && !r.isEmpty && !srcRows.has(key)) srcRows.set(key, { row: i, rec: r });
+      });
+      tplTeamTable.records.forEach((r, i) => {
+        const key = teamKey(r);
+        if (key && r && !r.isEmpty && !tplRows.has(key)) tplRows.set(key, { row: i, rec: r });
+      });
+
+      for (const [key, sEntry] of srcRows) {
+        const tEntry = tplRows.get(key);
+        if (!tEntry) continue;
+        coachTeams++;
+        const usedTargetRows = new Set();
+        for (const role of coachRoles) {
+          const sRow = coachRowFor(sEntry.rec, role, srcCoach.header.tableId);
+          const tRow = coachRowFor(tEntry.rec, role, tplCoach.header.tableId);
+          if (sRow === null || tRow === null || usedTargetRows.has(tRow)) continue;
+          const s = srcCoach.records[sRow];
+          const t = tplCoach.records[tRow];
+          if (!s || s.isEmpty || !t || t.isEmpty) continue;
+          let changed = false;
+          for (const field of coachIdentityFields) {
+            if (!(field in s.fields) || !(field in t.fields)) continue;
+            try {
+              t[field] = s[field];
+              changed = true;
+            } catch {}
+          }
+          if (changed) {
+            usedTargetRows.add(tRow);
+            coachCopies++;
+          }
+        }
+      }
+    }
 
     const TEAM_FREE_AGENTS = 32;
 
@@ -454,6 +543,8 @@ async function convert(srcPath, tplPath, outPath, profile = 'full') {
       if (modified) modifiedTables++;
     }
 
+    await copyCoachIdentitiesByTeam();
+
     // Tables that are not copied keep their M27 template references. Those
     // references point into Player row indices that now hold M26 players, so
     // the game shows phantom duplicates. Clear every such reference.
@@ -479,7 +570,7 @@ async function convert(srcPath, tplPath, outPath, profile = 'full') {
       }
     }
 
-    console.log(`profile=${profile}, common tables ${common}, fields copied ${copied}, refs remapped ${copiedRefs}, rows cleared ${cleared}, stale players retired ${neutralized}, skipped-refs cleared ${clearedSkippedRefs} in ${skippedRefTables} tables, skipped tables ${skippedTables}`);
+    console.log(`profile=${profile}, common tables ${common}, fields copied ${copied}, refs remapped ${copiedRefs}, rows cleared ${cleared}, stale players retired ${neutralized}, coach teams ${coachTeams}, coach rows pasted ${coachCopies}, skipped-refs cleared ${clearedSkippedRefs} in ${skippedRefTables} tables, skipped tables ${skippedTables}`);
     console.log(`match=uniqueId, skippedRefs=${skippedRefs}, skippedType=${skippedType}, skippedWidth=${skippedWidth}, modifiedTables=${modifiedTables}, readSkipped=${skipped}`);
     if (fs.existsSync(outPath)) {
       const stamp = new Date().toISOString().replace(/[:.]/g, '-');
