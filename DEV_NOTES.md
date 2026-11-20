@@ -41,7 +41,19 @@ Some conversion flows are available as Node scripts (may require dependencies su
 npm install
 node convert_m26_to_m27.js <m26 roster> <output path>
 node convert_m27_to_m26.js <m27 roster> <m26 template> <output path>
-node convert_franchise_m26_to_m27.mjs <source-franchise> <m27-template-franchise> <output-franchise> [full|core|tight]
+node convert_franchise_m26_to_m27.mjs <source-franchise> <m27-template-franchise> <output-franchise> [full|core|tight|select:group1,group2]
+```
+
+`select:` mode is for the short-term roster-first workaround. It copies only
+explicitly requested non-player table groups from an M26 source into an already
+correct M27 base franchise (for example one created from a converted roster).
+It never copies `Player`, `Player[]`, or `DepthChart`, and it automatically backs
+up an existing output file before writing. Available groups: `coaches`,
+`stadiums`, `teamnames`, `identity`, `personnel`, `contracts`, `draftclass`.
+Example:
+
+```powershell
+node convert_franchise_m26_to_m27.mjs <m26-source> <m27-base> <m27-out> select:coaches,stadiums,teamnames
 ```
 
 `M27_641_1.gz` must remain present under
@@ -72,7 +84,9 @@ node convert_franchise_m26_to_m27.mjs <source-franchise> <m27-template-franchise
 
 - Latest candidate: `CAREER-MSCTIGHT26`
 - Last known-good fallback: `CAREER-MSCTIGHT12`
-- Deployed converter script is not yet synced to the repo version.
+- New short-term path: use `select:` mode to layer non-player tables onto an
+  M27 base franchise created from a converted roster, one group at a time.
+- Deployed converter script is being synced with the repo version.
 
 ### Verified working pieces
 

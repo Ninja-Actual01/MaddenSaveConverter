@@ -56,7 +56,31 @@ async function convert(srcPath, tplPath, outPath, profile = 'full') {
       'ContractIncentive',
       'UserRegistry', 'User[]', 'FranchiseUser'
     ]);
+    // Incremental "select" profile: copy only explicitly requested table groups
+    // into an already-correct M27 base (for example a franchise created from a
+    // converted roster). Player/Player[]/DepthChart are never copied here.
+    const selectGroups = {
+      coaches: [/^Coach/i, /^Staff/i],
+      stadiums: [/^Stadium/i],
+      teamnames: [/^Team$/i],
+      identity: [/^Owner$/i, /^UserRegistry$/i, /^User\[\]$/i, /^FranchiseUser$/i],
+      personnel: [/^PlayerPersonnel$/i, /^RosterInfo$/i],
+      contracts: [/^Contract/i, /^PlayerContract/i, /^PlayerBaseContract/i],
+      draftclass: [/^DraftClass/i]
+    };
+    const selectTokens = profile.startsWith('select:')
+      ? profile.slice(7).split(',').map(s => s.trim()).filter(Boolean)
+      : [];
+    const forbiddenSelectNames = new Set(['Player', 'Player[]', 'DepthChart']);
     function copyAllowed(name) {
+      if (profile.startsWith('select:')) {
+        if (forbiddenSelectNames.has(name)) return false;
+        for (const tok of selectTokens) {
+          if (selectGroups[tok]?.some(rx => rx.test(name))) return true;
+          if (tok === name) return true;
+        }
+        return false;
+      }
       if (profile === 'tight') return tightNames.has(name);
       if (profile === 'core') return corePatterns.some(rx => rx.test(name));
       return !skipTablePatterns.some(rx => rx.test(name));
@@ -435,7 +459,7 @@ async function convert(srcPath, tplPath, outPath, profile = 'full') {
     const tplPlayerTable = tpl.tables.find(t => t.header?.uniqueId === 1612938518);
     const tplPlayerTableId = tplPlayerTable?.header?.tableId;
     let clearedSkippedRefs = 0, skippedRefTables = 0;
-    if (tplPlayerTableId) {
+    if (tplPlayerTableId && !profile.startsWith('select:')) {
       const clearRefsIn = new Set(['PlayerAcquisitionEvaluation', 'HistoryEntry']);
       for (const t of tpl.tables) {
         if (!t.header?.name || !clearRefsIn.has(t.header.name)) continue;
@@ -456,6 +480,12 @@ async function convert(srcPath, tplPath, outPath, profile = 'full') {
 
     console.log(`profile=${profile}, common tables ${common}, fields copied ${copied}, refs remapped ${copiedRefs}, rows cleared ${cleared}, stale players retired ${neutralized}, skipped-refs cleared ${clearedSkippedRefs} in ${skippedRefTables} tables, skipped tables ${skippedTables}`);
     console.log(`match=uniqueId, skippedRefs=${skippedRefs}, skippedType=${skippedType}, skippedWidth=${skippedWidth}, modifiedTables=${modifiedTables}, readSkipped=${skipped}`);
+    if (fs.existsSync(outPath)) {
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const backup = `${outPath}.bak-${stamp}`;
+      fs.copyFileSync(outPath, backup);
+      console.log(`backup=${backup}`);
+    }
     await tpl.save(outPath);
     console.log(`saved to ${outPath} size ${fs.statSync(outPath).size}`);
   } finally {
@@ -465,7 +495,9 @@ async function convert(srcPath, tplPath, outPath, profile = 'full') {
 
 const args = process.argv.slice(2);
 if (args.length < 3) {
-  console.log('usage: node convert_franchise_m26_to_m27.mjs <src> <tpl> <out> [full|core|tight]');
+  console.log('usage: node convert_franchise_m26_to_m27.mjs <src> <base> <out> [full|core|tight|select:group1,group2]');
+  console.log('select groups: coaches, stadiums, teamnames, identity, personnel, contracts, draftclass');
+  console.log('select mode never copies Player/Player[]/DepthChart and auto-backs up an existing output file.');
   process.exit(1);
 }
 await convert(args[0], args[1], args[2], args[3] || 'full');
