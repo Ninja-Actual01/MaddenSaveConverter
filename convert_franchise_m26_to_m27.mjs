@@ -21,10 +21,10 @@ async function convert(srcPath, tplPath, outPath, profile = 'full') {
     await tpl.parse();
     console.log(`tpl tables ${tpl.tables.length}`);
 
-    // Important: when we write into an "empty" slot, the library must mark the
-    // row as used and repair the empty-record linked list. Otherwise the game
-    // will most likely crash on load.
-    tpl.settings.autoUnempty = true;
+    // Tight/full conversion intentionally fills template rows, so autoUnempty
+    // is required there. Select mode only pastes into rows that already exist
+    // in the M27 base; unemptying rows is what blanked the UI on load.
+    tpl.settings.autoUnempty = !profile.startsWith('select:');
 
     const skipTablePatterns = [
       // system/event/engine/flow tables (cross-version sensitive)
@@ -62,7 +62,10 @@ async function convert(srcPath, tplPath, outPath, profile = 'full') {
     const selectGroups = {
       coaches: [/^Coach$/i, /^Coach\[\]$/i, /^CoachAudibles$/i],
       staff: [/^Staff$/i, /^Staff\[\]$/i],
-      stadiums: [/^Stadium$/i, /^StadiumOwnerData$/i, /^StadiumPartInfo$/i],
+      // Disabled: M27 bases keep this table entirely empty. Unemptying it to
+      // paste M26 stadium rows blanks the UI on load. Stadium/city names live
+      // in the shared string table via Team.Stadium, which already matches.
+      stadiums: [],
       teamnames: [/^Team$/i],
       identity: [/^Owner$/i, /^UserRegistry$/i, /^User\[\]$/i, /^FranchiseUser$/i],
       personnel: [/^PlayerPersonnel$/i, /^RosterInfo$/i],
@@ -428,6 +431,8 @@ async function convert(srcPath, tplPath, outPath, profile = 'full') {
         if (targetIndex >= tplTable.records.length) continue;
         const tRec = tplTable.records[targetIndex];
         if (!tRec) continue;
+        // Select mode is cell-by-cell only: never create/use an empty row.
+        if (profile.startsWith('select:') && (!sRec || sRec.isEmpty || tRec.isEmpty)) continue;
         if (!sRec || sRec.isEmpty) {
           if (clearEmptySlots && tRec && !tRec.isEmpty) {
             try {
@@ -588,7 +593,7 @@ async function convert(srcPath, tplPath, outPath, profile = 'full') {
 const args = process.argv.slice(2);
 if (args.length < 3) {
   console.log('usage: node convert_franchise_m26_to_m27.mjs <src> <base> <out> [full|core|tight|select:group1,group2]');
-  console.log('select groups: coaches, staff, stadiums, teamnames, identity, personnel, contracts, draftclass');
+  console.log('select groups: coaches, staff, stadiums(disabled), teamnames, identity, personnel, contracts, draftclass');
   console.log('select mode never copies Player/Player[]/DepthChart and auto-backs up an existing output file.');
   process.exit(1);
 }

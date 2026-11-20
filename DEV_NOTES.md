@@ -48,8 +48,11 @@ node convert_franchise_m26_to_m27.mjs <source-franchise> <m27-template-franchise
 explicitly requested non-player table groups from an M26 source into an already
 correct M27 base franchise (for example one created from a converted roster).
 It never copies `Player`, `Player[]`, or `DepthChart`, and it automatically backs
-up an existing output file before writing. Available groups: `coaches`, `staff`,
-`stadiums`, `teamnames`, `identity`, `personnel`, `contracts`, `draftclass`.
+up an existing output file before writing. All select groups now follow the same
+cell-by-cell rule: fields are matched by name, only fields present and compatible
+in both schemas are copied, unmatched fields/rows are ignored, and empty target
+rows are never unemptied. Available groups: `coaches`, `staff`, `stadiums`
+(disabled), `teamnames`, `identity`, `personnel`, `contracts`, `draftclass`.
 
 `select:coaches` does **not** paste whole rows by row number. M26 and M27 order
 their Coach tables differently. It matches each team by `AssetName`, follows that
