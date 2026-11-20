@@ -109,6 +109,8 @@ node convert_franchise_m26_to_m27.mjs <m26-source> <m27-base> <m27-out> select:c
 - `Player.TeamIndex` / `PrevTeamIndex` use `TEAM_LOGO` IDs, not Team row numbers.
   These values are identical in M26 and M27 and are copied unchanged. The M27
   template Bengals QB (Joe Burrow) has `TeamIndex = 1`, confirming Bengals = 1.
+- `Coach.TeamIndex` also uses logo IDs, not Team row numbers. Verified in both
+  M26 and M27: Patriots coaches have `TeamIndex = 21`. Do not row-remap it.
 - Stale M27 template `Player` rows are neutralized by blanking fields and
   parking them on `TEAM_FREE_AGENTS = 32`; rows themselves are not zeroed.
 - Stale references to source-empty `Player` rows are cleared only in
