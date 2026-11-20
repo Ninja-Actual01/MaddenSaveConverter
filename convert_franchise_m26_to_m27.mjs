@@ -390,7 +390,15 @@ async function convert(srcPath, tplPath, outPath, profile = 'full') {
               continue;
             }
 
-            const value = sRec[k];
+            let value = sRec[k];
+            // Coach/Staff TeamIndex is a Team row index (unlike Player.TeamIndex,
+            // which is a logo ID). In select mode we must translate it through
+            // the AssetName-based team row map, or coaches land on wrong teams.
+            if (profile.startsWith('select:') && k === 'TeamIndex' &&
+                /^(Coach|Staff)/i.test(name) && typeof value === 'number' &&
+                srcTeamRowToTarget.has(value)) {
+              value = srcTeamRowToTarget.get(value);
+            }
             if (typeof value === 'number' && Number.isFinite(value) && to.length) {
               const bits = to.length;
               const signed = !!to.isSigned;
