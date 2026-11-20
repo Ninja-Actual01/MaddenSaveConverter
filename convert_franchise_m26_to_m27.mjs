@@ -62,7 +62,7 @@ async function convert(srcPath, tplPath, outPath, profile = 'full') {
     const selectGroups = {
       coaches: [/^Coach$/i, /^Coach\[\]$/i, /^CoachAudibles$/i],
       staff: [/^Staff$/i, /^Staff\[\]$/i],
-      stadiums: [/^Stadium/i],
+      stadiums: [/^Stadium$/i, /^StadiumOwnerData$/i, /^StadiumPartInfo$/i],
       teamnames: [/^Team$/i],
       identity: [/^Owner$/i, /^UserRegistry$/i, /^User\[\]$/i, /^FranchiseUser$/i],
       personnel: [/^PlayerPersonnel$/i, /^RosterInfo$/i],

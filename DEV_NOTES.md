@@ -58,7 +58,9 @@ team's `HeadCoach` / `OffensiveCoordinator` / `DefensiveCoordinator` /
 exist in both schemas (identity, asset names, portrait/presentation, team index,
 age, experience and career values). Unmatched fields/rows are ignored. Broad
 `Coach*` event/eval/reaction tables are intentionally excluded because they are
-cross-version sensitive and caused load freezes.
+cross-version sensitive and caused load freezes. The `stadiums` group is likewise
+limited to `Stadium`, `StadiumOwnerData`, and `StadiumPartInfo`; stadium
+eval/upgrade/renovation event tables are excluded.
 Example:
 
 ```powershell
