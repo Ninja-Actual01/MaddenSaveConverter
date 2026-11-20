@@ -60,7 +60,8 @@ async function convert(srcPath, tplPath, outPath, profile = 'full') {
     // into an already-correct M27 base (for example a franchise created from a
     // converted roster). Player/Player[]/DepthChart are never copied here.
     const selectGroups = {
-      coaches: [/^Coach/i, /^Staff/i],
+      coaches: [/^Coach$/i, /^Coach\[\]$/i, /^CoachAudibles$/i],
+      staff: [/^Staff$/i, /^Staff\[\]$/i],
       stadiums: [/^Stadium/i],
       teamnames: [/^Team$/i],
       identity: [/^Owner$/i, /^UserRegistry$/i, /^User\[\]$/i, /^FranchiseUser$/i],
@@ -504,7 +505,7 @@ async function convert(srcPath, tplPath, outPath, profile = 'full') {
 const args = process.argv.slice(2);
 if (args.length < 3) {
   console.log('usage: node convert_franchise_m26_to_m27.mjs <src> <base> <out> [full|core|tight|select:group1,group2]');
-  console.log('select groups: coaches, stadiums, teamnames, identity, personnel, contracts, draftclass');
+  console.log('select groups: coaches, staff, stadiums, teamnames, identity, personnel, contracts, draftclass');
   console.log('select mode never copies Player/Player[]/DepthChart and auto-backs up an existing output file.');
   process.exit(1);
 }

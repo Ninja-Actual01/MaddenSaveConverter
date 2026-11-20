@@ -48,8 +48,10 @@ node convert_franchise_m26_to_m27.mjs <source-franchise> <m27-template-franchise
 explicitly requested non-player table groups from an M26 source into an already
 correct M27 base franchise (for example one created from a converted roster).
 It never copies `Player`, `Player[]`, or `DepthChart`, and it automatically backs
-up an existing output file before writing. Available groups: `coaches`,
-`stadiums`, `teamnames`, `identity`, `personnel`, `contracts`, `draftclass`.
+up an existing output file before writing. Available groups: `coaches` (only `Coach`, `Coach[]`, `CoachAudibles`),
+`staff`, `stadiums`, `teamnames`, `identity`, `personnel`, `contracts`,
+`draftclass`. Broad `Coach*` event/eval/reaction tables are intentionally
+excluded because they are cross-version sensitive and caused load freezes.
 Example:
 
 ```powershell
